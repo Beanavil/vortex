@@ -35,6 +35,8 @@ module VX_execute import VX_gpu_pkg::*; #(
 `ifdef PERF_ENABLE
     VX_mem_perf_if.slave    mem_perf_if,
     VX_pipeline_perf_if.slave pipeline_perf_if,
+    // Memory system interface
+    VX_mem_perf_if       perf_memsys_if,
 `endif
 
 `ifdef EXT_F_ENABLE
@@ -84,6 +86,9 @@ module VX_execute import VX_gpu_pkg::*; #(
         .clk            (clk),
         .reset          (lsu_reset),
         .cache_bus_if   (dcache_bus_if),
+        `ifdef PERF_ENABLE
+        .perf_memsys_if (perf_memsys_if),
+        `endif
         .dispatch_if    (lsu_dispatch_if),
         .commit_if      (lsu_commit_if)
     );

@@ -28,6 +28,8 @@ module VX_core import VX_gpu_pkg::*; #(
 
 `ifdef PERF_ENABLE
     VX_mem_perf_if.slave    mem_perf_if,
+    // Memory system interface
+    VX_mem_perf_if       perf_memsys_if,
 `endif
 
     VX_dcr_bus_if.slave     dcr_bus_if,
@@ -189,6 +191,7 @@ module VX_core import VX_gpu_pkg::*; #(
     `ifdef PERF_ENABLE
         .mem_perf_if    (mem_perf_tmp_if),        
         .pipeline_perf_if(pipeline_perf_if),
+        .perf_memsys_if (perf_memsys_if),
     `endif 
 
         .dcache_bus_if  (dcache_bus_tmp_if),

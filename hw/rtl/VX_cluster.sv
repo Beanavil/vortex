@@ -24,6 +24,7 @@ module VX_cluster import VX_gpu_pkg::*; #(
 
 `ifdef PERF_ENABLE
     VX_mem_perf_if.slave        mem_perf_if,
+    VX_mem_perf_if           perf_memsys_if,
 `endif
 
     // DCRs
@@ -150,6 +151,7 @@ module VX_cluster import VX_gpu_pkg::*; #(
 
         `ifdef PERF_ENABLE
             .mem_perf_if    (mem_perf_tmp_if),
+            .perf_memsys_if (perf_memsys_if),
         `endif
             
             .dcr_bus_if     (socket_dcr_bus_if),

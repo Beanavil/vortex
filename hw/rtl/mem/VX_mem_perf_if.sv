@@ -1,10 +1,10 @@
-// Copyright © 2019-2023
-// 
+// Copyright © 2019-2024
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 // http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -22,13 +22,16 @@ interface VX_mem_perf_if import VX_gpu_pkg::*; ();
     cache_perf_t smem;
     mem_perf_t   mem;
 
+    wire [`PERF_CTR_BITS-1:0] active_threads_dup_mr;
+
     modport master (
         output icache,
         output dcache,
         output l2cache,
         output l3cache,
         output smem,
-        output mem
+        output mem,
+        output active_threads_dup_mr
     );
 
     modport slave (
@@ -36,8 +39,9 @@ interface VX_mem_perf_if import VX_gpu_pkg::*; ();
         input dcache,
         input l2cache,
         input l3cache,
-        input smem,        
-        input mem
+        input smem,
+        input mem,
+        input active_threads_dup_mr
     );
 
 endinterface

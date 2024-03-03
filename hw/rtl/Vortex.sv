@@ -49,6 +49,7 @@ module Vortex import VX_gpu_pkg::*; (
     assign mem_perf_if.icache  = 'x;
     assign mem_perf_if.dcache  = 'x;
     assign mem_perf_if.l2cache = 'x;
+    VX_mem_perf_if perf_memsys_if;
 `endif
 
     VX_mem_bus_if #(
@@ -147,6 +148,7 @@ module Vortex import VX_gpu_pkg::*; (
 
         `ifdef PERF_ENABLE
             .mem_perf_if        (mem_perf_if),
+            .perf_memsys_if     (perf_memsys_if),
         `endif
             
             .dcr_bus_if         (cluster_dcr_bus_if),
