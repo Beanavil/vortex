@@ -21,8 +21,7 @@ interface VX_mem_perf_if import VX_gpu_pkg::*; ();
     cache_perf_t l3cache;
     cache_perf_t smem;
     mem_perf_t   mem;
-
-    wire [`PERF_CTR_BITS-1:0] active_threads_dup_mr;
+    wire [`PERF_CTR_BITS-1:0] dup_mem_reqs;
 
     modport master (
         output icache,
@@ -31,7 +30,7 @@ interface VX_mem_perf_if import VX_gpu_pkg::*; ();
         output l3cache,
         output smem,
         output mem,
-        output active_threads_dup_mr
+        output dup_mem_reqs
     );
 
     modport slave (
@@ -41,7 +40,7 @@ interface VX_mem_perf_if import VX_gpu_pkg::*; ();
         input l3cache,
         input smem,
         input mem,
-        input active_threads_dup_mr
+        input dup_mem_reqs
     );
 
 endinterface

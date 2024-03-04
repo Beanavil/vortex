@@ -35,8 +35,6 @@ module VX_execute import VX_gpu_pkg::*; #(
 `ifdef PERF_ENABLE
     VX_mem_perf_if.slave    mem_perf_if,
     VX_pipeline_perf_if.slave pipeline_perf_if,
-    // Memory system interface
-    VX_mem_perf_if       perf_memsys_if,
 `endif
 
 `ifdef EXT_F_ENABLE
@@ -79,6 +77,10 @@ module VX_execute import VX_gpu_pkg::*; #(
 
     `SCOPE_IO_SWITCH (1)
 
+`ifdef PERF_ENABLE
+    VX_mem_perf_if mem_perf_total_if();
+`endif
+
     VX_lsu_unit #(
         .CORE_ID (CORE_ID)
     ) lsu_unit (
@@ -87,7 +89,8 @@ module VX_execute import VX_gpu_pkg::*; #(
         .reset          (lsu_reset),
         .cache_bus_if   (dcache_bus_if),
         `ifdef PERF_ENABLE
-        .perf_memsys_if (perf_memsys_if),
+        .mem_perf_in_if (mem_perf_if),
+        .mem_perf_out_if(mem_perf_total_if),
         `endif
         .dispatch_if    (lsu_dispatch_if),
         .commit_if      (lsu_commit_if)
@@ -114,18 +117,16 @@ module VX_execute import VX_gpu_pkg::*; #(
         .reset          (sfu_reset),
 
     `ifdef PERF_ENABLE
-        .mem_perf_if    (mem_perf_if),
+        .mem_perf_if    (mem_perf_total_if),
         .pipeline_perf_if (pipeline_perf_if),
     `endif
 
         .base_dcrs      (base_dcrs),            
-
         .dispatch_if    (sfu_dispatch_if),
     
     `ifdef EXT_F_ENABLE
         .fpu_to_csr_if  (fpu_to_csr_if),
     `endif
-    
         .commit_csr_if  (commit_csr_if),
         .sched_csr_if   (sched_csr_if),
         .warp_ctl_if    (warp_ctl_if),
