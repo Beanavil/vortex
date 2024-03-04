@@ -23,9 +23,8 @@ module VX_socket import VX_gpu_pkg::*; #(
     input wire              reset,
 
 `ifdef PERF_ENABLE
-    VX_mem_perf_if.slave    mem_perf_if,
     // Memory system interface
-    VX_mem_perf_if       perf_memsys_if,
+    VX_mem_perf_if.slave    mem_perf_if,
 `endif
 
     // DCRs
@@ -226,7 +225,6 @@ module VX_socket import VX_gpu_pkg::*; #(
 
         `ifdef PERF_ENABLE
             .mem_perf_if    (mem_perf_tmp_if),
-            .perf_memsys_if (perf_memsys_if),
         `endif
             
             .dcr_bus_if     (core_dcr_bus_if),

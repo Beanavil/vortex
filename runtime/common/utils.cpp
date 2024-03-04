@@ -218,8 +218,8 @@ extern int vx_dump_perf(vx_device_h hdevice, FILE* stream) {
   uint64_t load_lat   = 0;
   // PERF: average active threads
   uint64_t active_threads = 0;
-  // PERF: duplicate mem requests in warps
-  uint64_t active_threads_dup_mr = 0;
+  // PERF: duplicated mem requests in warps
+  uint64_t dup_mem_reqs = 0;
   // PERF: l2cache
   uint64_t l2cache_reads = 0;
   uint64_t l2cache_writes = 0;
@@ -372,13 +372,21 @@ extern int vx_dump_perf(vx_device_h hdevice, FILE* stream) {
         if (num_cores > 1) fprintf(stream, "PERF: core%d: stores=%ld\n", core_id, stores_per_core);
         stores += stores_per_core;
       }
-      // average active threads
+      // active threads
       {
-        uint64_t active_threads_per_core = get_csr_64(staging_buf.data(), CSR_MPM_ACTIVE_THREADS);
+        uint64_t active_threads_per_core = get_csr_64(staging_buf.data(), VX_CSR_MPM_ACTIVE_THREADS);
         if (num_cores > 1) {
           fprintf(stream, "PERF: core%d: active threads=%ld\n", core_id, active_threads_per_core);
         }
         active_threads += active_threads_per_core;
+      }
+      // duplicated mem requests
+      {
+        uint64_t dup_mem_reqs_per_core = get_csr_64(staging_buf.data(), VX_CSR_MPM_DUP_MEM_REQS);
+        if (num_cores > 1) {
+          fprintf(stream, "PERF: core%d: duplicated mem requests=%ld\n", core_id, dup_mem_reqs_per_core);
+        }
+        dup_mem_reqs += dup_mem_reqs_per_core;
       }
     } break;
     case VX_DCR_MPM_CLASS_MEM: {
@@ -450,15 +458,7 @@ extern int vx_dump_perf(vx_device_h hdevice, FILE* stream) {
         mem_reads  = get_csr_64(staging_buf.data(), VX_CSR_MPM_MEM_READS);
         mem_writes = get_csr_64(staging_buf.data(), VX_CSR_MPM_MEM_WRITES);
         mem_lat    = get_csr_64(staging_buf.data(), VX_CSR_MPM_MEM_LT);
-      }
 
-      // times active threads in a warp had duplicate mem requests
-      {
-        uint64_t active_threads_dup_mr_per_core = get_csr_64(staging_buf.data(), VX_CSR_MPM_DUP_MR);
-        if (num_cores > 1) {
-          fprintf(stream, "PERF: core%d: duplicate mr of active threads=%ld\n", core_id, active_threads_dup_mr_per_core);
-        }
-        active_threads_dup_mr += active_threads_dup_mr_per_core;
       }
     } break;
     default:
@@ -498,7 +498,7 @@ extern int vx_dump_perf(vx_device_h hdevice, FILE* stream) {
     );
     float TPC = (float)(double(active_threads) / double(max_cycles));
     fprintf(stream, "PERF: active threads=%ld, cycles=%ld, TPC=%f\n", active_threads, max_cycles, TPC);
-    fprintf(stream, "PERF: duplicate mem requests of active threads=%ld\n", active_threads_dup_mr);
+    fprintf(stream, "PERF: duplicated mem requests=%ld\n", dup_mem_reqs);
     fprintf(stream, "PERF: ifetches=%ld\n", ifetches);
     fprintf(stream, "PERF: loads=%ld\n", loads);
     fprintf(stream, "PERF: stores=%ld\n", stores);

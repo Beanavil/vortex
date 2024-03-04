@@ -19,14 +19,15 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
     `SCOPE_IO_DECL
 
    input wire               clk,
-    input wire              reset,
+   input wire              reset,
 
    // Dcache interface
     VX_mem_bus_if.master    cache_bus_if [DCACHE_NUM_REQS],
 
     // Memory system interface
     `ifdef PERF_ENABLE
-    VX_mem_perf_if       perf_memsys_if,
+    VX_mem_perf_if.slave    mem_perf_in_if,
+    VX_mem_perf_if.master   mem_perf_out_if,
     `endif
 
     // inputs
@@ -115,18 +116,26 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
     assign lsu_is_dup = 0;
 `endif
 
+`ifdef PERF_ENABLE
     // count number of times threads in a warp access to duplicate addresses
-    reg [`PERF_CTR_BITS-1:0] perf_active_threads_dup_mr;
+    reg [`PERF_CTR_BITS-1:0] perf_dup_mem_reqs;
 
     always @(posedge clk) begin
         if (reset) begin
-            perf_active_threads_dup_mr <= '0;
+            perf_dup_mem_reqs <= '0;
         end else begin
-            perf_active_threads_dup_mr <= perf_active_threads_dup_mr + `PERF_CTR_BITS'(lsu_is_dup);
+            perf_dup_mem_reqs <= perf_dup_mem_reqs + `PERF_CTR_BITS'(lsu_is_dup);
         end
     end
 
-    assign perf_memsys_if.active_threads_dup_mr = perf_active_threads_dup_mr;
+    assign mem_perf_out_if.icache = mem_perf_in_if.icache;
+    assign mem_perf_out_if.dcache = mem_perf_in_if.dcache;
+    assign mem_perf_out_if.l2cache = mem_perf_in_if.l2cache;
+    assign mem_perf_out_if.l3cache = mem_perf_in_if.l3cache;
+    assign mem_perf_out_if.smem = mem_perf_in_if.smem;
+    assign mem_perf_out_if.mem = mem_perf_in_if.mem;
+    assign mem_perf_out_if.dup_mem_reqs = perf_dup_mem_reqs;
+`endif
 
     // detect address type
 

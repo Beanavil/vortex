@@ -187,7 +187,11 @@
 // Machine performance-monitoring (MPM) counters
 
 // Active threads
-`define CSR_MPM_ACTIVE_THREADS      12'hB1E
-`define CSR_MPM_ACTIVE_THREADS_H    12'hB9E
+`define VX_CSR_MPM_ACTIVE_THREADS       12'hB1E
+`define VX_CSR_MPM_ACTIVE_THREADS_H     12'hB9E
+
+// Duplicated mem requests
+`define VX_CSR_MPM_DUP_MEM_REQS		12'hB1F
+`define VX_CSR_MPM_DUP_MEM_REQS_H	12'hB9F
 
 `endif // VX_TYPES_VH
