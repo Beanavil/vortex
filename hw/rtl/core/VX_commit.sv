@@ -36,13 +36,19 @@ module VX_commit import VX_gpu_pkg::*; #(
     output wire [`NUM_REGS-1:0][`XLEN-1:0] sim_wb_value
 );
     `UNUSED_PARAM (CORE_ID)
-    localparam DATAW = `UUID_WIDTH + `NW_WIDTH + `NUM_THREADS + `XLEN + 1 + `NR_BITS + `NUM_THREADS * `XLEN + 1 + 1 + 1;
+    localparam DATAW = `UUID_WIDTH + `NW_WIDTH + `NUM_THREADS + `XLEN + 1 + `NR_BITS + `NUM_THREADS * `XLEN + 1 + 1 + 1 + 1;
     localparam COMMIT_SIZEW = `CLOG2(`NUM_THREADS + 1);
     localparam COMMIT_ALL_SIZEW = COMMIT_SIZEW + `ISSUE_WIDTH - 1;
 
     // commit arbitration
 
     VX_commit_if commit_if[`ISSUE_WIDTH]();
+
+    VX_commit_if      alu_commit_if_tmp [`ISSUE_WIDTH]();
+    VX_commit_if      sfu_commit_if_tmp [`ISSUE_WIDTH]();
+`ifdef EXT_F_ENABLE
+    VX_commit_if      fpu_commit_if_tmp [`ISSUE_WIDTH]();
+`endif
 
     wire [`ISSUE_WIDTH-1:0] commit_fire;
     wire [`ISSUE_WIDTH-1:0][`NW_WIDTH-1:0] commit_wid;
@@ -52,6 +58,14 @@ module VX_commit import VX_gpu_pkg::*; #(
     for (genvar i = 0; i < `ISSUE_WIDTH; ++i) begin
 
         `RESET_RELAY (arb_reset, reset);
+
+        assign sfu_commit_if_tmp[i].data = sfu_commit_if[i].data;
+        assign alu_commit_if_tmp[i].data = alu_commit_if[i].data;
+        assign fpu_commit_if_tmp[i].data = fpu_commit_if[i].data;
+
+        assign alu_commit_if_tmp[i].data.true_eop = 1'b1;
+        assign fpu_commit_if_tmp[i].data.true_eop = 1'b1;
+        assign sfu_commit_if_tmp[i].data.true_eop = 1'b1;
 
         VX_stream_arb #(
             .NUM_INPUTS (`NUM_EX_UNITS),
@@ -75,15 +89,15 @@ module VX_commit import VX_gpu_pkg::*; #(
                 fpu_commit_if[i].ready,
             `endif
                 alu_commit_if[i].ready,
-                lsu_commit_if[i].ready                
+                lsu_commit_if[i].ready
             }),
             .data_in   ({
-                sfu_commit_if[i].data,
+                sfu_commit_if_tmp[i].data,
             `ifdef EXT_F_ENABLE
-                fpu_commit_if[i].data,
+                fpu_commit_if_tmp[i].data,
             `endif
-                alu_commit_if[i].data,
-                lsu_commit_if[i].data       
+                alu_commit_if_tmp[i].data,
+                lsu_commit_if[i].data
             }),
             .data_out  (commit_if[i].data),
             .valid_out (commit_if[i].valid),
@@ -98,7 +112,6 @@ module VX_commit import VX_gpu_pkg::*; #(
     end
 
     // CSRs update
-    
     wire [`ISSUE_WIDTH-1:0][COMMIT_SIZEW-1:0] commit_size, commit_size_r;
     wire [COMMIT_ALL_SIZEW-1:0] commit_size_all_r, commit_size_all_rr;
     wire commit_fire_any, commit_fire_any_r, commit_fire_any_rr;
@@ -160,31 +173,30 @@ module VX_commit import VX_gpu_pkg::*; #(
     wire [`ISSUE_WIDTH-1:0] committed = commit_fire & commit_eop;
 
     VX_pipe_register #(
-        .DATAW  (`ISSUE_WIDTH * (1 + `NW_WIDTH)),
+        .DATAW  (`ISSUE_WIDTH * (1 + `NW_WIDTH) + 1),
         .RESETW (`ISSUE_WIDTH)
     ) committed_pipe_reg (
         .clk      (clk),
         .reset    (reset),
         .enable   (1'b1),
-        .data_in  ({committed, commit_wid}),
-        .data_out ({commit_sched_if.committed, commit_sched_if.committed_wid})
+        .data_in  ({committed, commit_wid, commit_if[0].data.true_eop}),
+        .data_out ({commit_sched_if.committed, commit_sched_if.committed_wid, commit_sched_if.true_eop})
     );
 
     // Writeback
 
     for (genvar i = 0; i < `ISSUE_WIDTH; ++i) begin
         assign writeback_if[i].valid     = commit_if[i].valid && commit_if[i].data.wb;
-        assign writeback_if[i].data.uuid = commit_if[i].data.uuid; 
+        assign writeback_if[i].data.uuid = commit_if[i].data.uuid;
         assign writeback_if[i].data.wis  = wid_to_wis(commit_if[i].data.wid);
-        assign writeback_if[i].data.PC   = commit_if[i].data.PC; 
-        assign writeback_if[i].data.tmask= commit_if[i].data.tmask; 
-        assign writeback_if[i].data.rd   = commit_if[i].data.rd; 
-        assign writeback_if[i].data.data = commit_if[i].data.data; 
-        assign writeback_if[i].data.sop  = commit_if[i].data.sop; 
+        assign writeback_if[i].data.PC   = commit_if[i].data.PC;
+        assign writeback_if[i].data.tmask= commit_if[i].data.tmask;
+        assign writeback_if[i].data.rd   = commit_if[i].data.rd;
+        assign writeback_if[i].data.data = commit_if[i].data.data;
+        assign writeback_if[i].data.sop  = commit_if[i].data.sop;
         assign writeback_if[i].data.eop  = commit_if[i].data.eop;
         assign commit_if[i].ready = 1'b1; // writeback has no backpressure
     end
-    
     // simulation helper signal to get RISC-V tests Pass/Fail status
     reg [`NUM_REGS-1:0][`XLEN-1:0] sim_wb_value_r;
     always @(posedge clk) begin
@@ -193,7 +205,7 @@ module VX_commit import VX_gpu_pkg::*; #(
         end
     end
     assign sim_wb_value = sim_wb_value_r;
-    
+
 `ifdef DBG_TRACE_CORE_PIPELINE
     for (genvar i = 0; i < `ISSUE_WIDTH; ++i) begin
         always @(posedge clk) begin

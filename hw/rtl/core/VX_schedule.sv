@@ -72,8 +72,8 @@ module VX_schedule import VX_gpu_pkg::*; #(
     wire schedule_if_fire = schedule_if.valid && schedule_if.ready;
 
     // branch
-    wire [`NUM_ALU_BLOCKS-1:0]                  branch_valid;    
-    wire [`NUM_ALU_BLOCKS-1:0][`NW_WIDTH-1:0]   branch_wid;    
+    wire [`NUM_ALU_BLOCKS-1:0]                  branch_valid;
+    wire [`NUM_ALU_BLOCKS-1:0][`NW_WIDTH-1:0]   branch_wid;
     wire [`NUM_ALU_BLOCKS-1:0]                  branch_taken;
     wire [`NUM_ALU_BLOCKS-1:0][`XLEN-1:0]       branch_dest;
     for (genvar i = 0; i < `NUM_ALU_BLOCKS; ++i) begin
@@ -87,7 +87,7 @@ module VX_schedule import VX_gpu_pkg::*; #(
     reg [`NUM_BARRIERS-1:0][`NUM_WARPS-1:0] barrier_masks, barrier_masks_n;
     reg [`NUM_WARPS-1:0] barrier_stalls, barrier_stalls_n;
     wire [`CLOG2(`NUM_WARPS+1)-1:0] active_barrier_count;
-    wire [`NUM_WARPS-1:0] curr_barrier_mask;    
+    wire [`NUM_WARPS-1:0] curr_barrier_mask;
 `ifdef GBAR_ENABLE
     reg [`NUM_WARPS-1:0] curr_barrier_mask_n;
     reg gbar_req_valid;
@@ -152,7 +152,7 @@ module VX_schedule import VX_gpu_pkg::*; #(
     `endif
         if (warp_ctl_if.valid && warp_ctl_if.barrier.valid) begin
             if (~warp_ctl_if.barrier.is_global 
-             && (active_barrier_count[`NW_WIDTH-1:0] == warp_ctl_if.barrier.size_m1[`NW_WIDTH-1:0])) begin                                
+             && (active_barrier_count[`NW_WIDTH-1:0] == warp_ctl_if.barrier.size_m1[`NW_WIDTH-1:0])) begin
                 barrier_masks_n[warp_ctl_if.barrier.id] = '0;
                 barrier_stalls_n &= ~barrier_masks[warp_ctl_if.barrier.id];
             end else begin
@@ -353,7 +353,7 @@ module VX_schedule import VX_gpu_pkg::*; #(
         .reset     (pending_instr_reset),
         .incr      (schedule_if_fire),
         .incr_wid  (schedule_if.data.wid),
-        .decr      (commit_sched_if.committed),
+        .decr      (commit_sched_if.committed & {(`ISSUE_WIDTH){commit_sched_if.true_eop}}),
         .decr_wid  (commit_sched_if.committed_wid),
         .alm_empty_wid (sched_csr_if.alm_empty_wid),
         .alm_empty (sched_csr_if.alm_empty),
@@ -387,7 +387,7 @@ module VX_schedule import VX_gpu_pkg::*; #(
     end
     `RUNTIME_ASSERT(timeout_ctr < `STALL_TIMEOUT, ("%t: *** core%0d-scheduler-timeout: stalled_warps=%b", $time, CORE_ID, stalled_warps));
 
-`ifdef PERF_ENABLE    
+`ifdef PERF_ENABLE
     reg [`PERF_CTR_BITS-1:0] perf_sched_idles;
     reg [`PERF_CTR_BITS-1:0] perf_sched_stalls;
 
@@ -397,7 +397,7 @@ module VX_schedule import VX_gpu_pkg::*; #(
     always @(posedge clk) begin
         if (reset) begin
             perf_sched_idles  <= '0;
-            perf_sched_stalls <= '0;            
+            perf_sched_stalls <= '0;
         end else begin
             perf_sched_idles  <= perf_sched_idles + `PERF_CTR_BITS'(schedule_idle);
             perf_sched_stalls <= perf_sched_stalls + `PERF_CTR_BITS'(schedule_stall);
@@ -405,7 +405,7 @@ module VX_schedule import VX_gpu_pkg::*; #(
     end
 
     assign perf_schedule_if.sched_idles = perf_sched_idles;
-    assign perf_schedule_if.sched_stalls = perf_sched_stalls;    
+    assign perf_schedule_if.sched_stalls = perf_sched_stalls;
 `endif
 
 endmodule

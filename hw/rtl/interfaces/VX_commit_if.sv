@@ -17,7 +17,6 @@ interface VX_commit_if #(
     parameter NUM_LANES = `NUM_THREADS,
     parameter PID_WIDTH = `LOG2UP(`NUM_THREADS / NUM_LANES)
 ) ();
-    
     typedef struct packed {
         logic [`UUID_WIDTH-1:0]     uuid;
         logic [`NW_WIDTH-1:0]       wid;
@@ -29,11 +28,12 @@ interface VX_commit_if #(
         logic [PID_WIDTH-1:0]       pid;
         logic                       sop;
         logic                       eop;
+        logic                       true_eop;
     } data_t;
 
     logic  valid;
     data_t data;
-    logic  ready;    
+    logic  ready;
 
     modport master (
         output valid,

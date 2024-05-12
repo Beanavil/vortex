@@ -1,0 +1,35 @@
+# Executables
+## Ignore all
+*
+## Unignore all with extensions
+!*.*
+## Unignore all dirs
+!*/
+# CI
+ci/*
+# Dependencies
+deps/*
+# Object files
+*.o
+*.a
+*.cache
+*.depend
+# Third party
+third_party/*
+# Sim
+sim/*
+# Runtime
+runtime/*
+# Shared
+*.so
+# Others
+*.dump
+*.pocl
+*.bin
+*.elf
+
+.python-version
+compile_commands.json
+trace.vcd
+*.log
+*.gtkw

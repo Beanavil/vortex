@@ -1,10 +1,10 @@
 // Copyright © 2019-2023
-// 
+//
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 // http://www.apache.org/licenses/LICENSE-2.0
-// 
+//
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,11 +15,11 @@
 
 module VX_lsu_unit import VX_gpu_pkg::*; #(
     parameter CORE_ID = 0
-) (    
+) (
     `SCOPE_IO_DECL
 
    input wire               clk,
-    input wire              reset,
+   input wire              reset,
 
    // Dcache interface
     VX_mem_bus_if.master    cache_bus_if [DCACHE_NUM_REQS],
@@ -27,16 +27,16 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
     // inputs
     VX_dispatch_if.slave    dispatch_if [`ISSUE_WIDTH],
 
-    // outputs    
+    // outputs
     VX_commit_if.master     commit_if [`ISSUE_WIDTH]
 );
     localparam BLOCK_SIZE   = 1;
     localparam NUM_LANES    = `NUM_LSU_LANES;
     localparam PID_BITS     = `CLOG2(`NUM_THREADS / NUM_LANES);
     localparam PID_WIDTH    = `UP(PID_BITS);
-    localparam RSP_ARB_DATAW= `UUID_WIDTH + `NW_WIDTH + NUM_LANES + `XLEN + `NR_BITS + 1 + NUM_LANES * `XLEN + PID_WIDTH + 1 + 1;
+    localparam RSP_ARB_DATAW= `UUID_WIDTH + `NW_WIDTH + NUM_LANES + `XLEN + `NR_BITS + NUM_LANES * `XLEN + PID_WIDTH + 1 + 1 + 1 + 1;
     localparam LSUQ_SIZEW   = `LOG2UP(`LSUQ_SIZE);
-    localparam MEM_ASHIFT   = `CLOG2(`MEM_BLOCK_SIZE);    
+    localparam MEM_ASHIFT   = `CLOG2(`MEM_BLOCK_SIZE);
     localparam MEM_ADDRW    = `XLEN - MEM_ASHIFT;
     localparam REQ_ASHIFT   = `CLOG2(DCACHE_WORD_SIZE);
     localparam CACHE_TAG_WIDTH = `UUID_WIDTH + (NUM_LANES * `CACHE_ADDR_TYPE_BITS) + LSUQ_TAG_BITS;
@@ -61,12 +61,12 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
     VX_commit_if #(
         .NUM_LANES (NUM_LANES)
     ) commit_st_if();
-    
+
     VX_commit_if #(
         .NUM_LANES (NUM_LANES)
     ) commit_ld_if();
-    
-    `UNUSED_VAR (execute_if[0].data.op_mod)     
+
+    `UNUSED_VAR (execute_if[0].data.op_mod)
     `UNUSED_VAR (execute_if[0].data.use_PC)
     `UNUSED_VAR (execute_if[0].data.use_imm)
     `UNUSED_VAR (execute_if[0].data.rs3_data)
@@ -79,28 +79,56 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
     localparam SMEM_END_B = MEM_ADDRW'((`XLEN'(`SMEM_BASE_ADDR) + (1 << `SMEM_LOG_SIZE)) >> MEM_ASHIFT);
 `endif
 
-    // tag = uuid + addr_type + wid + PC + tmask + rd + op_type + align + is_dup + pid + pkt_addr 
-    localparam TAG_WIDTH = `UUID_WIDTH + (NUM_LANES * `CACHE_ADDR_TYPE_BITS) + `NW_WIDTH + `XLEN + NUM_LANES + `NR_BITS + `INST_LSU_BITS + (NUM_LANES * (REQ_ASHIFT)) + `LSU_DUP_ENABLED + PID_WIDTH + LSUQ_SIZEW;
+    // tag = uuid + addr_type + wid + PC + tmask + rd + op_type + align + is_dup + pid + pkt_addr
+    localparam TAG_WIDTH = `UUID_WIDTH + (NUM_LANES * `CACHE_ADDR_TYPE_BITS) + `NW_WIDTH + `XLEN + NUM_LANES + `NR_BITS + `INST_LSU_BITS + (NUM_LANES * (REQ_ASHIFT)) + `LSU_DUP_ENABLED + PID_WIDTH + LSUQ_SIZEW + 1;
 
     `STATIC_ASSERT(0 == (`IO_BASE_ADDR % `MEM_BLOCK_SIZE), ("invalid parameter"))
 
     wire [NUM_LANES-1:0][`CACHE_ADDR_TYPE_BITS-1:0] lsu_addr_type;
 
-    // full address calculation
+    reg [`NT_BITS:0] mload_count_q, mload_count_n;
 
-    wire [NUM_LANES-1:0][`XLEN-1:0] full_addr;    
+
+    // For mload, destination registers are 4 and are contiguous in the register file.
+    wire [`NR_BITS-1:0] mem_req_rd;
+
+    wire is_mload;
+    assign is_mload = (execute_if[0].data.op_type == `INST_LSU_MLOAD) && lsu_valid;
+
+    // Full address calculation
+    wire [NUM_LANES-1:0][`XLEN-1:0] full_addr;
     for (genvar i = 0; i < NUM_LANES; ++i) begin
-        assign full_addr[i] = execute_if[0].data.rs1_data[i][`XLEN-1:0] + execute_if[0].data.imm;
+        wire [`XLEN-1:0] addr_offset_1;
+        wire [`XLEN-1:0] addr_offset_2;
+
+        // First matrix accesses have offset (tid / 2) * 2
+        assign addr_offset_1 = (`XLEN)'(i) >> 1 << 1;
+        // Second matrix accesses have offset (tid % 2)
+        assign addr_offset_2 = (`XLEN)'(i[0]);
+
+        always @(*) begin
+            if (is_mload) begin
+                if (mload_count_q < 2) begin
+                    full_addr[i] = execute_if[0].data.rs1_data[i] + ((`XLEN/8) * (addr_offset_1 + (`XLEN)'(mload_count_q == 'h1)));
+                end else begin
+                    full_addr[i] = execute_if[0].data.rs2_data[i] + ((`XLEN/8) * (addr_offset_2 + ((`XLEN)'(mload_count_q == 'h3) << 1)));
+                end
+            end else begin
+                full_addr[i] =  execute_if[0].data.rs1_data[i] + execute_if[0].data.imm;
+            end
+        end
     end
+
+    assign mem_req_rd = execute_if[0].data.rd + ((`NR_BITS)'(mload_count_q) & {(`NR_BITS){state_q == LSU_MLOAD}});
 
     // detect duplicate addresses
 
     wire lsu_is_dup;
 `ifdef LSU_DUP_ENABLE
-    if (NUM_LANES > 1) begin    
+    if (NUM_LANES > 1) begin
         wire [NUM_LANES-2:0] addr_matches;
         for (genvar i = 0; i < (NUM_LANES-1); ++i) begin
-            assign addr_matches[i] = (execute_if[0].data.rs1_data[i+1] == execute_if[0].data.rs1_data[0]) || ~execute_if[0].data.tmask[i+1];
+            assign addr_matches[i] = ((execute_if[0].data.rs1_data[i+1] == execute_if[0].data.rs1_data[0]) || ~execute_if[0].data.tmask[i+1]) && ~is_mload;
         end
         assign lsu_is_dup = execute_if[0].data.tmask[0] && (& addr_matches);
     end else begin
@@ -130,17 +158,20 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
     wire lsu_valid, lsu_ready;
 
     // fence: stall the pipeline until all pending requests are sent
-    wire is_fence = `INST_LSU_IS_FENCE(execute_if[0].data.op_type);
+    wire is_fence = execute_if[0].data.op_type == `INST_LSU_FENCE;
     wire fence_wait = is_fence && ~mem_req_empty;
-    
-    assign lsu_valid = execute_if[0].valid && ~fence_wait;
-    assign execute_if[0].ready = lsu_ready && ~fence_wait;
 
-    // schedule memory request    
+    assign lsu_valid = execute_if[0].valid && ~fence_wait;
+    assign lsu_ready = mem_req_ready && (~mem_req_rw || st_rsp_ready);
+
+    assign execute_if[0].ready = (lsu_ready && ~fence_wait && state_q == LSU_NORMAL && ~is_mload) 
+                                || (lsu_ready && ~fence_wait && state_q == LSU_MLOAD && mload_count_q == 'h3);
+
+    // schedule memory request
 
     wire                            mem_req_valid;
     wire [NUM_LANES-1:0]            mem_req_mask;
-    wire                            mem_req_rw;  
+    wire                            mem_req_rw;
     wire [NUM_LANES-1:0][`MEM_ADDR_WIDTH-REQ_ASHIFT-1:0] mem_req_addr;
     reg  [NUM_LANES-1:0][DCACHE_WORD_SIZE-1:0] mem_req_byteen;
     reg  [NUM_LANES-1:0][`XLEN-1:0] mem_req_data;
@@ -156,14 +187,12 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
     wire                            mem_rsp_ready;
 
     assign mem_req_valid = lsu_valid;
-    assign lsu_ready = mem_req_ready 
-                   && (~mem_req_rw || st_rsp_ready); // writes commit directly
 
     for (genvar i = 0; i < NUM_LANES; ++i) begin
         assign mem_req_mask[i] = execute_if[0].data.tmask[i] && (~lsu_is_dup || (i == 0));
     end
 
-    assign mem_req_rw = ~execute_if[0].data.wb;    
+    assign mem_req_rw = ~execute_if[0].data.wb;
 
     wire mem_req_fire = mem_req_valid && mem_req_ready;
     wire mem_rsp_fire = mem_rsp_valid && mem_rsp_ready;
@@ -174,7 +203,7 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
 
     wire [NUM_LANES-1:0][REQ_ASHIFT-1:0] req_align;
 
-    for (genvar i = 0; i < NUM_LANES; ++i) begin  
+    for (genvar i = 0; i < NUM_LANES; ++i) begin
         assign req_align[i] = full_addr[i][REQ_ASHIFT-1:0];
         assign mem_req_addr[i] = full_addr[i][`MEM_ADDR_WIDTH-1:REQ_ASHIFT];
     end
@@ -184,7 +213,7 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
         always @(*) begin
             mem_req_byteen[i] = '0;
             case (`INST_LSU_WSIZE(execute_if[0].data.op_type))
-                0: begin // 8-bit   
+                0: begin // 8-bit
                     mem_req_byteen[i][req_align[i]] = 1'b1;
                 end
                 1: begin // 16 bit
@@ -206,9 +235,9 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
 
     // memory misalignment not supported!
     for (genvar i = 0; i < NUM_LANES; ++i) begin
-        wire lsu_req_fire = execute_if[0].valid && execute_if[0].ready;        
-        `RUNTIME_ASSERT((~lsu_req_fire || ~execute_if[0].data.tmask[i] || is_fence || (full_addr[i] % (1 << `INST_LSU_WSIZE(execute_if[0].data.op_type))) == 0), 
-            ("misaligned memory access, wid=%0d, PC=0x%0h, addr=0x%0h, wsize=%0d! (#%0d)", 
+        wire lsu_req_fire = execute_if[0].valid && execute_if[0].ready;
+        `RUNTIME_ASSERT((~lsu_req_fire || ~execute_if[0].data.tmask[i] || is_fence || (full_addr[i] % (1 << `INST_LSU_WSIZE(execute_if[0].data.op_type))) == 0),
+            ("misaligned memory access, wid=%0d, PC=0x%0h, addr=0x%0h, wsize=%0d! (#%0d)",
                 execute_if[0].data.wid, execute_if[0].data.PC, full_addr[i], `INST_LSU_WSIZE(execute_if[0].data.op_type), execute_if[0].data.uuid));
     end
 
@@ -231,7 +260,7 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
         end
     end
 
-    // track SOP/EOP for out-of-order memory responses  
+    // track SOP/EOP for out-of-order memory responses
 
     wire [LSUQ_SIZEW-1:0] pkt_waddr, pkt_raddr;
     wire mem_rsp_sop_pkt, mem_rsp_eop_pkt;
@@ -245,7 +274,6 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
         wire mem_req_rd_eop_fire = mem_req_rd_fire && execute_if[0].data.eop;
         wire mem_rsp_eop_fire    = mem_rsp_fire && mem_rsp_eop;
         wire full;
-        
         VX_allocator #(
             .SIZE (`LSUQ_SIZE)
         ) pkt_allocator (
@@ -262,7 +290,7 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
         wire rd_during_wr = mem_req_rd_fire && mem_rsp_eop_fire && (pkt_raddr == pkt_waddr);
 
         always @(posedge clk) begin
-            if (reset) begin                
+            if (reset) begin
                 pkt_ctr <= '0;
                 pkt_sop <= '0;
                 pkt_eop <= '0;
@@ -297,13 +325,14 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
         `UNUSED_VAR (mem_rsp_sop)
     end else begin
         assign pkt_waddr = 0;
-        assign mem_rsp_sop_pkt = mem_rsp_sop;        
+        assign mem_rsp_sop_pkt = mem_rsp_sop;
         assign mem_rsp_eop_pkt = mem_rsp_eop;
         `UNUSED_VAR (pkt_raddr)
     end
 
     assign mem_req_tag = {
-        execute_if[0].data.uuid, lsu_addr_type, execute_if[0].data.wid, execute_if[0].data.tmask, execute_if[0].data.PC, execute_if[0].data.rd, execute_if[0].data.op_type, req_align, execute_if[0].data.pid, pkt_waddr
+        execute_if[0].data.uuid, lsu_addr_type, execute_if[0].data.wid, execute_if[0].data.tmask, execute_if[0].data.PC,
+        mem_req_rd , execute_if[0].data.op_type, req_align, execute_if[0].data.pid, pkt_waddr, (mload_count_q == 3'h3 && state_q == LSU_MLOAD) || (~is_mload && state_q == LSU_NORMAL)
     `ifdef LSU_DUP_ENABLE
         , lsu_is_dup
     `endif
@@ -325,7 +354,7 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
 
     VX_mem_scheduler #(
         .INSTANCE_ID ($sformatf("core%0d-lsu-memsched", CORE_ID)),
-        .NUM_REQS    (LSU_MEM_REQS), 
+        .NUM_REQS    (LSU_MEM_REQS),
         .NUM_BANKS   (DCACHE_NUM_REQS),
         .ADDR_WIDTH  (DCACHE_ADDR_WIDTH),
         .DATA_WIDTH  (`XLEN),
@@ -350,7 +379,6 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
         .req_empty      (mem_req_empty),
         .req_ready      (mem_req_ready),
         `UNUSED_PIN     (write_notify),
-        
         // Output response
         .rsp_valid      (mem_rsp_valid),
         .rsp_mask       (mem_rsp_mask),
@@ -390,14 +418,14 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
     end
 
     // cache tag formatting: <uuid, tag, type>
-    
+
     for (genvar i = 0; i < DCACHE_NUM_REQS; ++i) begin
         wire [`UUID_WIDTH-1:0]                          cache_req_uuid, cache_rsp_uuid;
-        wire [NUM_LANES-1:0][`CACHE_ADDR_TYPE_BITS-1:0] cache_req_type, cache_rsp_type;        
+        wire [NUM_LANES-1:0][`CACHE_ADDR_TYPE_BITS-1:0] cache_req_type, cache_rsp_type;
         wire [`CLOG2(`LSUQ_SIZE)-1:0]                   cache_req_tag_x, cache_rsp_tag_x;
         if (DCACHE_NUM_BATCHES > 1) begin
 
-            wire [DCACHE_NUM_BATCHES-1:0][`CACHE_ADDR_TYPE_BITS-1:0] cache_req_type_b, cache_rsp_type_b;            
+            wire [DCACHE_NUM_BATCHES-1:0][`CACHE_ADDR_TYPE_BITS-1:0] cache_req_type_b, cache_rsp_type_b;
             wire [`CACHE_ADDR_TYPE_BITS-1:0] cache_req_type_bi, cache_rsp_type_bi;
             wire [DCACHE_BATCH_SEL_BITS-1:0] cache_req_bid, cache_rsp_bid;
 
@@ -410,7 +438,7 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
             assign cache_rsp_tag[i] = {cache_rsp_uuid, cache_rsp_type, cache_rsp_bid, cache_rsp_tag_x};
 
             for (genvar j = 0; j < DCACHE_NUM_BATCHES; ++j) begin
-                localparam k = j * DCACHE_NUM_REQS + i;                
+                localparam k = j * DCACHE_NUM_REQS + i;
                 if (k < NUM_LANES) begin
                     assign cache_req_type_b[j] = cache_req_type[k];
                     assign cache_rsp_type[k] = cache_rsp_type_b[j];
@@ -421,12 +449,11 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
             end
 
         end else begin
-            
             assign {cache_req_uuid, cache_req_type, cache_req_tag_x} = cache_req_tag[i];
             assign cache_bus_if[i].req_data.tag = {cache_req_uuid, cache_req_tag_x, cache_req_type[i]};
 
             assign {cache_rsp_uuid, cache_rsp_tag_x, cache_rsp_type[i]} = cache_bus_if[i].rsp_data.tag;
-            assign cache_rsp_tag[i] = {cache_rsp_uuid, cache_rsp_type, cache_rsp_tag_x};        
+            assign cache_rsp_tag[i] = {cache_rsp_uuid, cache_rsp_type, cache_rsp_tag_x};
 
             for (genvar j = 0; j < DCACHE_NUM_REQS; ++j) begin
                 if (i != j) begin
@@ -436,7 +463,6 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
             end
         end
     end
-    
     wire [`UUID_WIDTH-1:0] rsp_uuid;
     wire [NUM_LANES-1:0][`CACHE_ADDR_TYPE_BITS-1:0] rsp_addr_type;
     wire [`NW_WIDTH-1:0] rsp_wid;
@@ -447,13 +473,13 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
     wire [NUM_LANES-1:0][REQ_ASHIFT-1:0] rsp_align;
     wire [PID_WIDTH-1:0] rsp_pid;
     wire rsp_is_dup;
-    
 `ifndef LSU_DUP_ENABLE
     assign rsp_is_dup = 0;
 `endif
 
+    wire rsp_true_eop;
     assign {
-        rsp_uuid, rsp_addr_type, rsp_wid, rsp_tmask_uq, rsp_pc, rsp_rd, rsp_op_type, rsp_align, rsp_pid, pkt_raddr
+        rsp_uuid, rsp_addr_type, rsp_wid, rsp_tmask_uq, rsp_pc, rsp_rd, rsp_op_type, rsp_align, rsp_pid, pkt_raddr, rsp_true_eop
     `ifdef LSU_DUP_ENABLE
         , rsp_is_dup
     `endif
@@ -482,7 +508,7 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
                                                           (rsp_align[i][2] ? mem_rsp_data[i][63:32] : mem_rsp_data[i][31:0]);
     `else
         wire [31:0] rsp_data32 = (i == 0 || rsp_is_dup) ? mem_rsp_data[0] : mem_rsp_data[i];
-    `endif        
+    `endif
         wire [15:0] rsp_data16 = rsp_align[i][1] ? rsp_data32[31:16] : rsp_data32[15:0];
         wire [7:0]  rsp_data8  = rsp_align[i][0] ? rsp_data16[15:8] : rsp_data16[7:0];
 
@@ -492,7 +518,7 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
             `INST_FMT_H:  rsp_data[i] = `XLEN'(signed'(rsp_data16));
             `INST_FMT_BU: rsp_data[i] = `XLEN'(unsigned'(rsp_data8));
             `INST_FMT_HU: rsp_data[i] = `XLEN'(unsigned'(rsp_data16));
-        `ifdef XLEN_64            
+        `ifdef XLEN_64
             `INST_FMT_W:  rsp_data[i] = rsp_is_float ? (`XLEN'(rsp_data32) | 64'hffffffff00000000) : `XLEN'(signed'(rsp_data32));
             `INST_FMT_WU: rsp_data[i] = `XLEN'(unsigned'(rsp_data32));
             `INST_FMT_D:  rsp_data[i] = `XLEN'(signed'(rsp_data64));
@@ -501,23 +527,23 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
         `endif
             default: rsp_data[i] = 'x;
             endcase
-        end        
-    end   
+        end
+    end
 
     assign rsp_tmask = rsp_is_dup ? rsp_tmask_uq : mem_rsp_mask;
 
     // load commit
 
     VX_elastic_buffer #(
-        .DATAW (`UUID_WIDTH + `NW_WIDTH + NUM_LANES + `XLEN + `NR_BITS + (NUM_LANES * `XLEN) + PID_WIDTH + 1 + 1),
+        .DATAW (`UUID_WIDTH + `NW_WIDTH + NUM_LANES + `XLEN + `NR_BITS + (NUM_LANES * `XLEN) + PID_WIDTH + 1 + 1 + 1),
         .SIZE  (2)
     ) ld_rsp_buf (
         .clk       (clk),
         .reset     (reset),
         .valid_in  (mem_rsp_valid),
         .ready_in  (mem_rsp_ready),
-        .data_in   ({rsp_uuid, rsp_wid, rsp_tmask, rsp_pc, rsp_rd, rsp_data, rsp_pid, mem_rsp_sop_pkt, mem_rsp_eop_pkt}),
-        .data_out  ({commit_ld_if.data.uuid, commit_ld_if.data.wid, commit_ld_if.data.tmask, commit_ld_if.data.PC, commit_ld_if.data.rd, commit_ld_if.data.data, commit_ld_if.data.pid, commit_ld_if.data.sop, commit_ld_if.data.eop}),
+        .data_in   ({rsp_uuid, rsp_wid, rsp_tmask, rsp_pc, rsp_rd, rsp_data, rsp_pid, mem_rsp_sop_pkt, mem_rsp_eop_pkt, rsp_true_eop}),
+        .data_out  ({commit_ld_if.data.uuid, commit_ld_if.data.wid, commit_ld_if.data.tmask, commit_ld_if.data.PC, commit_ld_if.data.rd, commit_ld_if.data.data, commit_ld_if.data.pid, commit_ld_if.data.sop, commit_ld_if.data.eop, commit_ld_if.data.true_eop}),
         .valid_out (commit_ld_if.valid),
         .ready_out (commit_ld_if.ready)
     );
@@ -539,12 +565,12 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
         .valid_out (commit_st_if.valid),
         .ready_out (commit_st_if.ready)
     );
+    assign commit_st_if.data.true_eop = 1'b1;
     assign commit_st_if.data.rd   = '0;
     assign commit_st_if.data.wb   = 1'b0;
     assign commit_st_if.data.data = commit_ld_if.data.data; // force arbiter passthru
 
     // lsu commit
-    
     `RESET_RELAY (commit_reset, reset);
 
     VX_commit_if #(
@@ -562,8 +588,8 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
         .ready_in  ({commit_st_if.ready, commit_ld_if.ready}),
         .data_in   ({commit_st_if.data, commit_ld_if.data}),
         .data_out  (commit_arb_if[0].data),
-        .valid_out (commit_arb_if[0].valid), 
-        .ready_out (commit_arb_if[0].ready),        
+        .valid_out (commit_arb_if[0].valid),
+        .ready_out (commit_arb_if[0].ready),
         `UNUSED_PIN (sel_out)
     );
 
@@ -577,6 +603,49 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
         .commit_in_if  (commit_arb_if),
         .commit_out_if (commit_if)
     );
+
+    reg state_q, state_n;
+
+    localparam LSU_NORMAL = 1'b0;
+    localparam LSU_MLOAD = 1'b1;
+
+    always @(*) begin
+        assign state_n = state_q;
+        assign mload_count_n = mload_count_q;
+
+        case (state_q)
+            LSU_NORMAL: begin
+                mload_count_n = '0;
+                if (is_mload) begin
+                    if (lsu_ready) begin
+                        state_n = LSU_MLOAD;
+                        mload_count_n = mload_count_q + 1'b1;
+                    end
+                end
+            end
+            LSU_MLOAD: begin
+                 if (lsu_ready) begin
+                    if (mload_count_q == 'h3) begin
+                        state_n = LSU_NORMAL;
+                    end else begin
+                        mload_count_n = mload_count_q + 1'b1;
+                    end
+                end
+            end
+            default:;
+        endcase
+    end
+
+    always @(posedge clk) begin
+        if (reset) begin
+            state_q <= LSU_NORMAL;
+            mload_count_q <= '0;
+        end else begin
+            state_q <= state_n;
+            mload_count_q <= mload_count_n;
+        end
+    end
+
 
 `ifdef DBG_SCOPE_LSU
     if (CORE_ID == 0) begin
@@ -596,7 +665,7 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
             .bus_out(scope_bus_out)
         );
     `endif
-    `ifdef CHIPSCOPE    
+    `ifdef CHIPSCOPE
         wire [31:0] full_addr_0 = full_addr[0];
         wire [31:0] mem_req_data_0 = mem_req_data[0];
         wire [31:0] rsp_data_0 = rsp_data[0];
@@ -612,12 +681,13 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
 `else
     `SCOPE_IO_UNUSED()
 `endif
-  
+
 `ifdef DBG_TRACE_CORE_DCACHE
-    always @(posedge clk) begin    
+    always @(posedge clk) begin
         if (execute_if[0].valid && fence_wait) begin
             `TRACE(1, ("%d: *** D$%0d fence wait\n", $time, CORE_ID));
         end
+
         if (mem_req_fire) begin
             if (mem_req_rw) begin
                 `TRACE(1, ("%d: D$%0d Wr Req: wid=%0d, PC=0x%0h, tmask=%b, addr=", $time, CORE_ID, execute_if[0].data.wid, execute_if[0].data.PC, mem_req_mask));
@@ -632,7 +702,7 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
                 `TRACE_ARRAY1D(1, full_addr, NUM_LANES);
                 `TRACE(1, (", tag=0x%0h, byteen=0x%0h, type=", mem_req_tag, mem_req_byteen));
                 `TRACE_ARRAY1D(1, lsu_addr_type, NUM_LANES);
-                `TRACE(1, (", rd=%0d, is_dup=%b (#%0d)\n", execute_if[0].data.rd, lsu_is_dup, execute_if[0].data.uuid));
+                `TRACE(1, (", rd=%0d, is_dup=%b (#%0d)\n", mem_req_rd, lsu_is_dup, execute_if[0].data.uuid));
             end
         end
         if (mem_rsp_fire) begin
@@ -643,5 +713,4 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
         end
     end
 `endif
-    
 endmodule
