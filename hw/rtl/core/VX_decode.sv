@@ -42,7 +42,7 @@ module VX_decode  #(
     VX_decode_sched_if.master decode_sched_if
 );
 
-    localparam DATAW = `UUID_WIDTH + `NW_WIDTH + `NUM_THREADS + `XLEN + `EX_BITS + `INST_OP_BITS + `INST_MOD_BITS + (`NR_BITS * 4) + `XLEN + 1 + 1 + 1;
+    localparam DATAW = `UUID_WIDTH + `NW_WIDTH + `NUM_THREADS + `XLEN + `EX_BITS + `INST_OP_BITS + `INST_MOD_BITS + (`NR_BITS * 4) + `XLEN + 1 + 1 + 1 + 1;
 
     `UNUSED_PARAM (CORE_ID)
     `UNUSED_VAR (clk)
@@ -53,7 +53,7 @@ module VX_decode  #(
     reg [`INST_MOD_BITS-1:0] op_mod;
     reg [`NR_BITS-1:0] rd_r, rs1_r, rs2_r, rs3_r;
     reg [`XLEN-1:0] imm;
-    reg use_rd, use_rs1, use_rs2, use_rs3, use_PC, use_imm;
+    reg use_rd, use_rs1, use_rs2, use_rs3, use_PC, use_imm, is_mstore;
     reg is_wstall;
 
     wire [31:0] instr = fetch_if.data.instr;
@@ -161,6 +161,7 @@ module VX_decode  #(
         use_rs2   = 0;
         use_rs3   = 0;
         is_wstall = 0;
+        is_mstore = 0;
 
         case (opcode)
             `INST_I: begin
@@ -513,6 +514,20 @@ module VX_decode  #(
                         `USED_IREG (rs2);
                         `USED_IREG (rd);
                     end
+                    3'h1: begin
+                        ex_type = `EX_LSU;
+                        op_type = `INST_OP_BITS'(`INST_LSU_MSTORE);
+                        imm     = '0; // TODO
+                        use_imm = 1;
+                        is_mstore = 1'b1;
+                        `USED_IREG (rs1);
+                    `ifdef EXT_F_ENABLE
+                        if (opcode[2]) begin
+                            `USED_FREG (rs2);
+                        end else
+                    `endif
+                        `USED_IREG (rs2);
+                    end
                     default:;
                 endcase
             end
@@ -531,8 +546,8 @@ module VX_decode  #(
         .reset     (reset),
         .valid_in  (fetch_if.valid),
         .ready_in  (fetch_if.ready),
-        .data_in   ({fetch_if.data.uuid, fetch_if.data.wid, fetch_if.data.tmask, fetch_if.data.PC, ex_type, op_type, op_mod, use_PC, imm, use_imm, wb, rd_r, rs1_r, rs2_r, rs3_r}),
-        .data_out  ({decode_if.data.uuid, decode_if.data.wid, decode_if.data.tmask, decode_if.data.PC, decode_if.data.ex_type, decode_if.data.op_type, decode_if.data.op_mod, decode_if.data.use_PC, decode_if.data.imm, decode_if.data.use_imm, decode_if.data.wb, decode_if.data.rd, decode_if.data.rs1, decode_if.data.rs2, decode_if.data.rs3}),
+        .data_in   ({fetch_if.data.uuid, fetch_if.data.wid, fetch_if.data.tmask, fetch_if.data.PC, ex_type, op_type, op_mod, use_PC, imm, use_imm, wb, rd_r, rs1_r, rs2_r, rs3_r, is_mstore}),
+        .data_out  ({decode_if.data.uuid, decode_if.data.wid, decode_if.data.tmask, decode_if.data.PC, decode_if.data.ex_type, decode_if.data.op_type, decode_if.data.op_mod, decode_if.data.use_PC, decode_if.data.imm, decode_if.data.use_imm, decode_if.data.wb, decode_if.data.rd, decode_if.data.rs1, decode_if.data.rs2, decode_if.data.rs3, decode_if.data.is_mstore}),
         .valid_out (decode_if.valid),
         .ready_out (decode_if.ready)
     );

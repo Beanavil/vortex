@@ -92,6 +92,9 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
     // For mload, destination registers are 4 and are contiguous in the register file.
     wire [`NR_BITS-1:0] mem_req_rd;
 
+    wire is_mstore;
+    assign is_mstore = execute_if[0].data.is_mstore;
+
     wire is_mload;
     assign is_mload = (execute_if[0].data.op_type == `INST_LSU_MLOAD) && lsu_valid;
 
@@ -113,6 +116,8 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
                 end else begin
                     full_addr[i] = execute_if[0].data.rs2_data[i] + ((`XLEN/8) * (addr_offset_2 + ((`XLEN)'(mload_count_q == 'h3) << 1)));
                 end
+            end else if (is_mstore) begin 
+                full_addr[i] =  execute_if[0].data.rs1_data[i] + ((`XLEN/8) * i);
             end else begin
                 full_addr[i] =  execute_if[0].data.rs1_data[i] + execute_if[0].data.imm;
             end
@@ -128,7 +133,7 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
     if (NUM_LANES > 1) begin
         wire [NUM_LANES-2:0] addr_matches;
         for (genvar i = 0; i < (NUM_LANES-1); ++i) begin
-            assign addr_matches[i] = ((execute_if[0].data.rs1_data[i+1] == execute_if[0].data.rs1_data[0]) || ~execute_if[0].data.tmask[i+1]) && ~is_mload;
+            assign addr_matches[i] = ((execute_if[0].data.rs1_data[i+1] == execute_if[0].data.rs1_data[0]) || ~execute_if[0].data.tmask[i+1]) && ~is_mload && ~is_mstore;
         end
         assign lsu_is_dup = execute_if[0].data.tmask[0] && (& addr_matches);
     end else begin

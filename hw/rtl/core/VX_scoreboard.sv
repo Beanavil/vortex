@@ -30,7 +30,7 @@ module VX_scoreboard import VX_gpu_pkg::*; #(
     VX_ibuffer_if.master    scoreboard_if [`ISSUE_WIDTH]
 );
     `UNUSED_PARAM (CORE_ID)
-    localparam DATAW = `UUID_WIDTH + ISSUE_WIS_W + `NUM_THREADS + `XLEN + `EX_BITS + `INST_OP_BITS + `INST_MOD_BITS + 1 + 1 + `XLEN + (`NR_BITS * 4) + 1;
+    localparam DATAW = `UUID_WIDTH + ISSUE_WIS_W + `NUM_THREADS + `XLEN + `EX_BITS + `INST_OP_BITS + `INST_MOD_BITS + 1 + 1 + `XLEN + (`NR_BITS * 4) + 1 + 1;
 
 `ifdef PERF_ENABLE
     reg [`ISSUE_WIDTH-1:0][`NUM_EX_UNITS-1:0] perf_issue_units_per_cycle;
@@ -101,13 +101,18 @@ module VX_scoreboard import VX_gpu_pkg::*; #(
         wire writeback_fire = writeback_if[i].valid && writeback_if[i].data.eop;
 
         wire inuse_rd  = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd];
-        wire inuse_rd1 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd + 1] & (ibuffer_if[i].data.op_type == `INST_LSU_MLOAD && ibuffer_if[i].data.ex_type == `EX_LSU);
-        wire inuse_rd2 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd + 2] & (ibuffer_if[i].data.op_type == `INST_LSU_MLOAD && ibuffer_if[i].data.ex_type == `EX_LSU);
-        wire inuse_rd3 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd + 3] & (ibuffer_if[i].data.op_type == `INST_LSU_MLOAD && ibuffer_if[i].data.ex_type == `EX_LSU);
+        wire inuse_rd1 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd + 1] & ibuffer_if[i].data.op_type == `INST_LSU_MLOAD && (ibuffer_if[i].data.ex_type == `EX_LSU);
+        wire inuse_rd2 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd + 2] & ibuffer_if[i].data.op_type == `INST_LSU_MLOAD && (ibuffer_if[i].data.ex_type == `EX_LSU);
+        wire inuse_rd3 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd + 3] & ibuffer_if[i].data.op_type == `INST_LSU_MLOAD && (ibuffer_if[i].data.ex_type == `EX_LSU);
 
         wire inuse_rs1 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs1];
-        wire inuse_rs2 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2];
-        wire inuse_rs3 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs3];
+
+        wire inuse_rs2 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2] && ibuffer_if[i].data.is_mstore && (ibuffer_if[i].data.ex_type == `EX_LSU);
+        wire inuse_rs2a = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 1] && ibuffer_if[i].data.is_mstore && (ibuffer_if[i].data.ex_type == `EX_LSU);
+        wire inuse_rs2b = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 2] && ibuffer_if[i].data.is_mstore && (ibuffer_if[i].data.ex_type == `EX_LSU);
+        wire inuse_rs2c = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 3] && ibuffer_if[i].data.is_mstore && (ibuffer_if[i].data.ex_type == `EX_LSU);
+
+        wire inuse_rs3 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs3] ;
 
     `ifdef PERF_ENABLE
         reg [`UP(ISSUE_RATIO)-1:0][`NUM_REGS-1:0][`EX_WIDTH-1:0] inuse_units;   
@@ -156,7 +161,7 @@ module VX_scoreboard import VX_gpu_pkg::*; #(
         assign perf_issue_stalls_per_cycle[i] = ibuffer_if[i].valid && ~ibuffer_if[i].ready;
     `endif
 
-        wire [6:0] operands_busy = {inuse_rd, inuse_rd1, inuse_rd2, inuse_rd3, inuse_rs1, inuse_rs2, inuse_rs3};
+        wire [9:0] operands_busy = {inuse_rd, inuse_rd1, inuse_rd2, inuse_rd3, inuse_rs1, inuse_rs2, inuse_rs2a, inuse_rs2b, inuse_rs2c, inuse_rs3};
         wire operands_ready = ~(| operands_busy);
         
         wire stg_valid_in, stg_ready_in;

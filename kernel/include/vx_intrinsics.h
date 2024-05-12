@@ -153,6 +153,10 @@ inline void vx_barrier(unsigned barried_id, unsigned num_warps) {
     asm volatile (".insn r %0, 4, 0, x0, %1, %2" :: "i"(RISCV_CUSTOM0), "r"(barried_id), "r"(num_warps));
 }
 
+// NOTE: check `info -f riscv64-gnu-toolchain/share/info/as.info | less`
+// search for `RISC-V Instruction Formats`
+
+// Special matrix operations
 // Matrices load
 inline void vx_mload(int* input, int* weights) {
     // Load input and weights matrices
@@ -161,8 +165,41 @@ inline void vx_mload(int* input, int* weights) {
     // asm volatile (".insn r %1, 0, 0, %0, %2, %3" : "=r"(ret) : "i"(RISCV_CUSTOM2), "r"(input), "r"(weights));
     // return ret;
 
+    // TODO: refactor to this format because we can then also specify the stride
+    // 'R type with 4 register operands: .insn r opcode6, func3, func2, rd, rs1, rs2, rs3'
+    // 'R4 type: .insn r4 opcode6, func3, func2, rd, rs1, rs2, rs3'
+    //      +-----+-------+-----+-----+-------+----+---------+
+    //      | rs3 | func2 | rs2 | rs1 | func3 | rd | opcode6 |
+    //      +-----+-------+-----+-----+-------+----+---------+
+    //      31    27      25    20    15      12   7         0
+
     asm volatile (".insn r %0, 0, 0, x28, %1, %2" :: "i"(RISCV_CUSTOM2), "r"(input), "r"(weights));
 }
+
+
+inline void vx_mstore(int* output) {
+    // TODO: Store output matrix
+    //    S type: .insn s opcode6, func3, rs2, simm12(rs1)
+    //  +--------------+-----+-----+-------+-------------+---------+
+    //  | simm12[11:5] | rs2 | rs1 | func3 | simm12[4:0] | opcode6 |
+    //  +--------------+-----+-----+-------+-------------+---------+
+    //  31             25    20    15      12            7         0
+
+    asm volatile (".insn s %1, 1, x28, 0(%0)" :: "r"(output), "i"(RISCV_CUSTOM2));
+}
+
+/*
+inline void vx_mmul(int* output) {
+    // TODO: Matrix multiply
+    //	    S type: .insn s opcode6, func3, rs2, simm12(rs1)
+    //  +--------------+-----+-----+-------+-------------+---------+
+    //  | simm12[11:5] | rs2 | rs1 | func3 | simm12[4:0] | opcode6 |
+    //  +--------------+-----+-----+-------+-------------+---------+
+    //  31             25    20    15      12            7         0
+
+    asm volatile (".insn s %1, 0, x28, 0(%0)" :: "r"(output), "i"(RISCV_CUSTOM2));
+}
+*/
 
 // Return current thread identifier
 inline int vx_thread_id() {
