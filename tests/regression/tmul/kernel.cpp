@@ -12,7 +12,6 @@ void kernel_body(int task_id, kernel_arg_t* __UNIFORM__ arg) {
 	vx_mload(A, B);
 	vx_fence();
 	vx_mstore(C);
-	vx_fence();
 
 	vx_printf("DEVICE: A=%p A[0]=%d A[1]=%d A[2]=%d A[3]=%d\n", A, A[0], A[1], A[2], A[3]);
 	vx_printf("DEVICE: B=%p B[0]=%d B[1]=%d B[2]=%d B[3]=%d\n", B, B[0], B[1], B[2], B[3]);

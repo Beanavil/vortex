@@ -101,18 +101,18 @@ module VX_scoreboard import VX_gpu_pkg::*; #(
         wire writeback_fire = writeback_if[i].valid && writeback_if[i].data.eop;
 
         wire inuse_rd  = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd];
-        wire inuse_rd1 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd + 1] & ibuffer_if[i].data.op_type == `INST_LSU_MLOAD && (ibuffer_if[i].data.ex_type == `EX_LSU);
-        wire inuse_rd2 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd + 2] & ibuffer_if[i].data.op_type == `INST_LSU_MLOAD && (ibuffer_if[i].data.ex_type == `EX_LSU);
-        wire inuse_rd3 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd + 3] & ibuffer_if[i].data.op_type == `INST_LSU_MLOAD && (ibuffer_if[i].data.ex_type == `EX_LSU);
+        wire inuse_rd1 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd + 1] & (ibuffer_if[i].data.op_type == `INST_LSU_MLOAD && ibuffer_if[i].data.ex_type == `EX_LSU);
+        wire inuse_rd2 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd + 2] & (ibuffer_if[i].data.op_type == `INST_LSU_MLOAD && ibuffer_if[i].data.ex_type == `EX_LSU);
+        wire inuse_rd3 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd + 3] & (ibuffer_if[i].data.op_type == `INST_LSU_MLOAD && ibuffer_if[i].data.ex_type == `EX_LSU);
 
         wire inuse_rs1 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs1];
 
-        wire inuse_rs2 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2] && ibuffer_if[i].data.is_mstore && (ibuffer_if[i].data.ex_type == `EX_LSU);
-        wire inuse_rs2a = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 1] && ibuffer_if[i].data.is_mstore && (ibuffer_if[i].data.ex_type == `EX_LSU);
-        wire inuse_rs2b = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 2] && ibuffer_if[i].data.is_mstore && (ibuffer_if[i].data.ex_type == `EX_LSU);
-        wire inuse_rs2c = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 3] && ibuffer_if[i].data.is_mstore && (ibuffer_if[i].data.ex_type == `EX_LSU);
+        wire inuse_rs2 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2];
+        wire inuse_rs2a = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 1 * (ibuffer_if[i].data.rs2 < `NUM_REGS-1)] && ibuffer_if[i].data.is_mstore;
+        wire inuse_rs2b = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 2 * (ibuffer_if[i].data.rs2 < `NUM_REGS-2)] && ibuffer_if[i].data.is_mstore;
+        wire inuse_rs2c = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 3 * (ibuffer_if[i].data.rs2 < `NUM_REGS-3)] && ibuffer_if[i].data.is_mstore;
 
-        wire inuse_rs3 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs3] ;
+        wire inuse_rs3 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs3];
 
     `ifdef PERF_ENABLE
         reg [`UP(ISSUE_RATIO)-1:0][`NUM_REGS-1:0][`EX_WIDTH-1:0] inuse_units;   
@@ -216,9 +216,9 @@ module VX_scoreboard import VX_gpu_pkg::*; #(
             end else begin
                 if (ibuffer_if[i].valid && ~ibuffer_if[i].ready) begin
                 `ifdef DBG_TRACE_CORE_PIPELINE
-                    `TRACE(3, ("%d: *** core%0d-scoreboard-stall: wid=%0d, PC=0x%0h, tmask=%b, cycles=%0d, inuse=%b (#%0d)\n",
+                    `TRACE(3, ("%d: *** core%0d-scoreboard-stall: wid=%0d, PC=0x%0h, tmask=%b, cycles=%0d, inuse=%b, is_mstore=%b (#%0d)\n",
                         $time, CORE_ID, wis_to_wid(ibuffer_if[i].data.wis, i), ibuffer_if[i].data.PC, ibuffer_if[i].data.tmask, timeout_ctr,
-                        operands_busy, ibuffer_if[i].data.uuid));
+                        operands_busy, ibuffer_if[i].data.is_mstore, ibuffer_if[i].data.uuid));
                 `endif
                     timeout_ctr <= timeout_ctr + 1;
                 end else if (ibuffer_if[i].valid && ibuffer_if[i].ready) begin

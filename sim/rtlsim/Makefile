@@ -73,7 +73,7 @@ VL_FLAGS += -j $(THREADS)
 # Debugigng
 ifdef DEBUG
 	VL_FLAGS += --trace --trace-structs $(DBG_FLAGS)
-	CXXFLAGS += -g -O0 $(DBG_FLAGS)
+	CXXFLAGS += --param=max-vartrack-size=60000000 -g -O0 $(DBG_FLAGS)
     # Faster compilation times
     VL_FLAGS += --hierarchical
 else    

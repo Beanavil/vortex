@@ -570,8 +570,8 @@ module VX_decode  #(
             trace_ex_type(1, decode_if.data.ex_type);
             `TRACE(1, (", op="));
             trace_ex_op(1, decode_if.data.ex_type, decode_if.data.op_type, decode_if.data.op_mod, decode_if.data.rd, decode_if.data.rs2, decode_if.data.use_imm, decode_if.data.imm);
-            `TRACE(1, (", mod=%0d, tmask=%b, wb=%b, rd=%0d, rs1=%0d, rs2=%0d, rs3=%0d, imm=0x%0h, opds=%b%b%b%b, use_pc=%b, use_imm=%b (#%0d)\n",
-                decode_if.data.op_mod, decode_if.data.tmask, decode_if.data.wb, decode_if.data.rd, decode_if.data.rs1, decode_if.data.rs2, decode_if.data.rs3, decode_if.data.imm, use_rd, use_rs1, use_rs2, use_rs3, decode_if.data.use_PC, decode_if.data.use_imm, decode_if.data.uuid));
+            `TRACE(1, (", mod=%0d, tmask=%b, wb=%b, rd=%0d, rs1=%0d, rs2=%0d, rs3=%0d, imm=0x%0h, opds=%b%b%b%b, use_pc=%b, use_imm=%b, is_mstore=%b (#%0d)\n",
+                decode_if.data.op_mod, decode_if.data.tmask, decode_if.data.wb, decode_if.data.rd, decode_if.data.rs1, decode_if.data.rs2, decode_if.data.rs3, decode_if.data.imm, use_rd, use_rs1, use_rs2, use_rs3, decode_if.data.use_PC, decode_if.data.use_imm, decode_if.data.is_mstore, decode_if.data.uuid));
         end
     end
 `endif
