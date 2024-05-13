@@ -80,7 +80,7 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
 `endif
 
     // tag = uuid + addr_type + wid + PC + tmask + rd + op_type + align + is_dup + pid + pkt_addr
-    localparam TAG_WIDTH = `UUID_WIDTH + (NUM_LANES * `CACHE_ADDR_TYPE_BITS) + `NW_WIDTH + `XLEN + NUM_LANES + `NR_BITS + `INST_LSU_BITS + (NUM_LANES * (REQ_ASHIFT)) + `LSU_DUP_ENABLED + PID_WIDTH + LSUQ_SIZEW + 1;
+    localparam TAG_WIDTH = `UUID_WIDTH + (NUM_LANES * `CACHE_ADDR_TYPE_BITS) + `NW_WIDTH + `XLEN + NUM_LANES + `NR_BITS + `INST_LSU_BITS + (NUM_LANES * (REQ_ASHIFT)) + `LSU_DUP_ENABLED + PID_WIDTH + LSUQ_SIZEW + 1 + 1;
 
     `STATIC_ASSERT(0 == (`IO_BASE_ADDR % `MEM_BLOCK_SIZE), ("invalid parameter"))
 
@@ -337,7 +337,7 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
 
     assign mem_req_tag = {
         execute_if[0].data.uuid, lsu_addr_type, execute_if[0].data.wid, execute_if[0].data.tmask, execute_if[0].data.PC,
-        mem_req_rd , execute_if[0].data.op_type, req_align, execute_if[0].data.pid, pkt_waddr, (mload_count_q == 3'h3 && state_q == LSU_MLOAD) || (~is_mload && state_q == LSU_NORMAL)
+        mem_req_rd , execute_if[0].data.op_type, req_align, execute_if[0].data.pid, pkt_waddr, (mload_count_q == 3'h3 && state_q == LSU_MLOAD) || (~is_mload && state_q == LSU_NORMAL), (state_q == LSU_MLOAD) || is_mload || is_mstore
     `ifdef LSU_DUP_ENABLE
         , lsu_is_dup
     `endif
@@ -482,9 +482,9 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
     assign rsp_is_dup = 0;
 `endif
 
-    wire rsp_true_eop;
+    wire rsp_true_eop, rsp_custom_instr;
     assign {
-        rsp_uuid, rsp_addr_type, rsp_wid, rsp_tmask_uq, rsp_pc, rsp_rd, rsp_op_type, rsp_align, rsp_pid, pkt_raddr, rsp_true_eop
+        rsp_uuid, rsp_addr_type, rsp_wid, rsp_tmask_uq, rsp_pc, rsp_rd, rsp_op_type, rsp_align, rsp_pid, pkt_raddr, rsp_true_eop, rsp_custom_instr
     `ifdef LSU_DUP_ENABLE
         , rsp_is_dup
     `endif
@@ -518,20 +518,29 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
         wire [7:0]  rsp_data8  = rsp_align[i][0] ? rsp_data16[15:8] : rsp_data16[7:0];
 
         always @(*) begin
-            case (`INST_LSU_FMT(rsp_op_type))
-            `INST_FMT_B:  rsp_data[i] = `XLEN'(signed'(rsp_data8));
-            `INST_FMT_H:  rsp_data[i] = `XLEN'(signed'(rsp_data16));
-            `INST_FMT_BU: rsp_data[i] = `XLEN'(unsigned'(rsp_data8));
-            `INST_FMT_HU: rsp_data[i] = `XLEN'(unsigned'(rsp_data16));
-        `ifdef XLEN_64
-            `INST_FMT_W:  rsp_data[i] = rsp_is_float ? (`XLEN'(rsp_data32) | 64'hffffffff00000000) : `XLEN'(signed'(rsp_data32));
-            `INST_FMT_WU: rsp_data[i] = `XLEN'(unsigned'(rsp_data32));
-            `INST_FMT_D:  rsp_data[i] = `XLEN'(signed'(rsp_data64));
-        `else
-            `INST_FMT_W:  rsp_data[i] = `XLEN'(signed'(rsp_data32));
-        `endif
-            default: rsp_data[i] = 'x;
-            endcase
+            rsp_data[i] = 'x;
+            if (rsp_custom_instr) begin
+            `ifdef XLEN_64
+                rsp_data[i] = rsp_is_float ? (`XLEN'(rsp_data32) | 64'hffffffff00000000) : `XLEN'(signed'(rsp_data32));
+            `else
+                rsp_data[i] = `XLEN'(signed'(rsp_data32));
+            `endif
+            end else begin
+                case (`INST_LSU_FMT(rsp_op_type))
+                `INST_FMT_B:  rsp_data[i] = `XLEN'(signed'(rsp_data8));
+                `INST_FMT_H:  rsp_data[i] = `XLEN'(signed'(rsp_data16));
+                `INST_FMT_BU: rsp_data[i] = `XLEN'(unsigned'(rsp_data8));
+                `INST_FMT_HU: rsp_data[i] = `XLEN'(unsigned'(rsp_data16));
+            `ifdef XLEN_64
+                `INST_FMT_W:  rsp_data[i] = rsp_is_float ? (`XLEN'(rsp_data32) | 64'hffffffff00000000) : `XLEN'(signed'(rsp_data32));
+                `INST_FMT_WU: rsp_data[i] = `XLEN'(unsigned'(rsp_data32));
+                `INST_FMT_D:  rsp_data[i] = `XLEN'(signed'(rsp_data64));
+            `else
+                `INST_FMT_W:  rsp_data[i] = `XLEN'(signed'(rsp_data32));
+            `endif
+                default: rsp_data[i] = 'x;
+                endcase
+            end
         end
     end
 
