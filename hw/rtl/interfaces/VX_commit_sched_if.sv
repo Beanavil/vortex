@@ -17,7 +17,7 @@ interface VX_commit_sched_if ();
 
     wire [`ISSUE_WIDTH-1:0] committed;
     wire [`ISSUE_WIDTH-1:0][`NW_WIDTH-1:0] committed_wid;
-    wire true_eop;
+    wire [`ISSUE_WIDTH-1:0] true_eop;
 
     modport master (
         output committed,

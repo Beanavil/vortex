@@ -108,9 +108,9 @@ module VX_scoreboard import VX_gpu_pkg::*; #(
         wire inuse_rs1 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs1];
 
         wire inuse_rs2 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2];
-        wire inuse_rs2a = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 1 * (ibuffer_if[i].data.rs2 < `NUM_REGS-1)] && ibuffer_if[i].data.is_mstore;
-        wire inuse_rs2b = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 2 * (ibuffer_if[i].data.rs2 < `NUM_REGS-2)] && ibuffer_if[i].data.is_mstore;
-        wire inuse_rs2c = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 3 * (ibuffer_if[i].data.rs2 < `NUM_REGS-3)] && ibuffer_if[i].data.is_mstore;
+        wire inuse_rs2a = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 1] & ibuffer_if[i].data.is_mstore;
+        wire inuse_rs2b = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 2] & ibuffer_if[i].data.is_mstore;
+        wire inuse_rs2c = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 3] & ibuffer_if[i].data.is_mstore;
 
         wire inuse_rs3 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs3];
 
@@ -224,16 +224,6 @@ module VX_scoreboard import VX_gpu_pkg::*; #(
                 end else if (ibuffer_if[i].valid && ibuffer_if[i].ready) begin
                     timeout_ctr <= '0;
                 end
-
-                `ifdef DBG_TRACE_CORE_PIPELINE
-                    if (writeback_if[i].valid) begin
-                        `TRACE(1, ("%d: *** core%0d-scoreboard-writeback: wid=%0d, PC=0x%0h, tmask=%b, rd=%d, sop=%b, eop=%b, data=",
-                            $time, CORE_ID, wis_to_wid(writeback_if[i].data.wis, i), writeback_if[i].data.PC, writeback_if[i].data.tmask, writeback_if[i].data.rd, writeback_if[i].data.sop, writeback_if[i].data.eop));
-                         
-                        `TRACE_ARRAY1D(1, writeback_if[i].data, `ISSUE_WIDTH);
-                        `TRACE(1,  ("(#%0d)\n", writeback_if[i].data.uuid));
-                    end
-                `endif
             end
         end
 

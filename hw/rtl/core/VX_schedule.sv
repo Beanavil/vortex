@@ -353,7 +353,7 @@ module VX_schedule import VX_gpu_pkg::*; #(
         .reset     (pending_instr_reset),
         .incr      (schedule_if_fire),
         .incr_wid  (schedule_if.data.wid),
-        .decr      (commit_sched_if.committed & {(`ISSUE_WIDTH){commit_sched_if.true_eop}}),
+        .decr      (commit_sched_if.committed & commit_sched_if.true_eop),
         .decr_wid  (commit_sched_if.committed_wid),
         .alm_empty_wid (sched_csr_if.alm_empty_wid),
         .alm_empty (sched_csr_if.alm_empty),

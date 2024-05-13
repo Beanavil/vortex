@@ -151,7 +151,6 @@ module VX_wctl_unit import VX_gpu_pkg::*; #(
     
     for (genvar i = 0; i < NUM_LANES; ++i) begin
         assign commit_if.data.data[i] = `XLEN'(split_r.is_dvg);
-        assign commit_if.data.true_eop = 1'b1;
     end
 
 endmodule

@@ -133,9 +133,9 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
     if (NUM_LANES > 1) begin
         wire [NUM_LANES-2:0] addr_matches;
         for (genvar i = 0; i < (NUM_LANES-1); ++i) begin
-            assign addr_matches[i] = ((execute_if[0].data.rs1_data[i+1] == execute_if[0].data.rs1_data[0]) || ~execute_if[0].data.tmask[i+1]) && ~is_mload && ~is_mstore;
+            assign addr_matches[i] = ((execute_if[0].data.rs1_data[i+1] == execute_if[0].data.rs1_data[0]) || ~execute_if[0].data.tmask[i+1]);
         end
-        assign lsu_is_dup = execute_if[0].data.tmask[0] && (& addr_matches);
+        assign lsu_is_dup = execute_if[0].data.tmask[0] && (& addr_matches) && ~is_mload && ~is_mstore;
     end else begin
         assign lsu_is_dup = 0;
     end
@@ -558,19 +558,18 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
     // store commit
 
     VX_elastic_buffer #(
-        .DATAW (`UUID_WIDTH + `NW_WIDTH + NUM_LANES + `XLEN + PID_WIDTH + 1 + 1),
+        .DATAW (`UUID_WIDTH + `NW_WIDTH + NUM_LANES + `XLEN + PID_WIDTH + 1 + 1 + 1),
         .SIZE  (2)
     ) st_rsp_buf (
         .clk       (clk),
         .reset     (reset),
         .valid_in  (mem_req_fire && mem_req_rw),
         .ready_in  (st_rsp_ready),
-        .data_in   ({execute_if[0].data.uuid, execute_if[0].data.wid, execute_if[0].data.tmask, execute_if[0].data.PC, execute_if[0].data.pid, execute_if[0].data.sop, execute_if[0].data.eop}),
-        .data_out  ({commit_st_if.data.uuid, commit_st_if.data.wid, commit_st_if.data.tmask, commit_st_if.data.PC, commit_st_if.data.pid, commit_st_if.data.sop, commit_st_if.data.eop}),
+        .data_in   ({execute_if[0].data.uuid, execute_if[0].data.wid, execute_if[0].data.tmask, execute_if[0].data.PC, execute_if[0].data.pid, execute_if[0].data.sop, execute_if[0].data.eop, 1'b1}),
+        .data_out  ({commit_st_if.data.uuid, commit_st_if.data.wid, commit_st_if.data.tmask, commit_st_if.data.PC, commit_st_if.data.pid, commit_st_if.data.sop, commit_st_if.data.eop, commit_st_if.data.true_eop}),
         .valid_out (commit_st_if.valid),
         .ready_out (commit_st_if.ready)
     );
-    assign commit_st_if.data.true_eop = 1'b1;
     assign commit_st_if.data.rd   = '0;
     assign commit_st_if.data.wb   = 1'b0;
     assign commit_st_if.data.data = commit_ld_if.data.data; // force arbiter passthru

@@ -243,7 +243,6 @@ module VX_operands import VX_gpu_pkg::*; #(
         assign operands_if[i].data.rs3_data = rs3_data;
 
         // GPR banks
-
         reg [RAM_ADDRW-1:0] gpr_rd_addr;
         wire [RAM_ADDRW-1:0] gpr_wr_addr;
         if (ISSUE_WIS != 0) begin
@@ -290,6 +289,20 @@ module VX_operands import VX_gpu_pkg::*; #(
                 .raddr (gpr_rd_addr),
                 .rdata (gpr_rd_data[j])
             );
+            `ifdef DBG_TRACE_CORE_PIPELINE
+                always @(posedge clk) begin
+                        if (
+                            `ifdef GPR_RESET
+                                wr_enabled && writeback_if[i].valid && writeback_if[i].data.tmask[j]
+                            `else
+                                writeback_if[i].valid && writeback_if[i].data.tmask[j]
+                            `endif              
+                            ) begin
+                            `TRACE(1, ("%d: *** core%0d-operands-writeback: wid=%0d, PC=0x%0h, tmask=%b, tid=%0d, rd=%d, sop=%b, eop=%b, wdata=%0d (#%0d)\n",
+                                $time, CORE_ID, wis_to_wid(writeback_if[i].data.wis, i), writeback_if[i].data.PC, writeback_if[i].data.tmask, j, writeback_if[i].data.rd, writeback_if[i].data.sop, writeback_if[i].data.eop,  writeback_if[i].data.data[j], writeback_if[i].data.uuid));
+                        end
+                end
+            `endif
         end
     end
 
