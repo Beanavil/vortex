@@ -62,6 +62,8 @@ module VX_muldiv_unit #(
     wire is_signed_mul_a = `INST_M_SIGNED_A(muldiv_op);
     wire is_signed_mul_b = is_signed_op;
 
+    wire mul_is_mmul_out;
+
 `ifdef IMUL_DPI
 
     wire [NUM_LANES-1:0][`XLEN-1:0] mul_result_tmp;  
@@ -79,15 +81,15 @@ module VX_muldiv_unit #(
     end
 
     VX_shift_register #(
-        .DATAW  (1 + TAGW + (NUM_LANES * `XLEN)),
+        .DATAW  (1 + TAGW + (NUM_LANES * `XLEN) + 1),
         .DEPTH  (`LATENCY_IMUL),
         .RESETW (1)
     ) mul_shift_reg (
         .clk(clk),
         .reset    (reset),
         .enable   (mul_ready_in),
-        .data_in  ({mul_valid_in, execute_if.data.uuid, execute_if.data.wid, execute_if.data.tmask, execute_if.data.PC, execute_if.data.rd, execute_if.data.wb, execute_if.data.pid, execute_if.data.sop, execute_if.data.eop, mul_result_tmp}),
-        .data_out ({mul_valid_out, mul_uuid_out, mul_wid_out, mul_tmask_out, mul_PC_out, mul_rd_out, mul_wb_out, mul_pid_out, mul_sop_out, mul_eop_out, mul_result_out})
+        .data_in  ({mul_valid_in, execute_if.data.uuid, execute_if.data.wid, execute_if.data.tmask, execute_if.data.PC, execute_if.data.rd, execute_if.data.wb, execute_if.data.pid, execute_if.data.sop, execute_if.data.eop, mul_result_tmp, execute_if.data.op_type == `INST_ALU_MMUL}),
+        .data_out ({mul_valid_out, mul_uuid_out, mul_wid_out, mul_tmask_out, mul_PC_out, mul_rd_out, mul_wb_out, mul_pid_out, mul_sop_out, mul_eop_out, mul_result_out, mul_is_mmul_out})
     );
 
     assign mul_ready_in = mul_ready_out || ~mul_valid_out;
@@ -138,14 +140,14 @@ module VX_muldiv_unit #(
         .result    (mul_result_tmp)
     );
 
-    reg [TAGW+2-1:0] mul_tag_r;
+    reg [TAGW+2-1+1:0] mul_tag_r;
     always @(posedge clk) begin
         if (mul_valid_in && mul_ready_in) begin
-            mul_tag_r <= {execute_if.data.uuid, execute_if.data.wid, execute_if.data.tmask, execute_if.data.PC, execute_if.data.rd, execute_if.data.wb, is_mulh_in, is_alu_w, execute_if.data.pid, execute_if.data.sop, execute_if.data.eop};
+            mul_tag_r <= {execute_if.data.uuid, execute_if.data.wid, execute_if.data.tmask, execute_if.data.PC, execute_if.data.rd, execute_if.data.wb, is_mulh_in, is_alu_w, execute_if.data.pid, execute_if.data.sop, execute_if.data.eop, execute_if.data.op_type == `INST_ALU_MMUL};
         end
     end
     
-    assign {mul_uuid_out, mul_wid_out, mul_tmask_out, mul_PC_out, mul_rd_out, mul_wb_out, is_mulh_out, is_mul_w_out, mul_pid_out, mul_sop_out, mul_eop_out} = mul_tag_r;
+    assign {mul_uuid_out, mul_wid_out, mul_tmask_out, mul_PC_out, mul_rd_out, mul_wb_out, is_mulh_out, is_mul_w_out, mul_pid_out, mul_sop_out, mul_eop_out, mul_is_mmul_out} = mul_tag_r;
 
 `else
 
@@ -169,15 +171,15 @@ module VX_muldiv_unit #(
     end
 
     VX_shift_register #(
-        .DATAW  (1 + TAGW + 1 + 1),
+        .DATAW  (1 + TAGW + 1 + 1 + 1),
         .DEPTH  (`LATENCY_IMUL),
         .RESETW (1)
     ) mul_shift_reg (
         .clk(clk),
         .reset    (reset),
         .enable   (mul_ready_in),
-        .data_in  ({mul_valid_in, execute_if.data.uuid, execute_if.data.wid, execute_if.data.tmask, execute_if.data.PC, execute_if.data.rd, execute_if.data.wb, execute_if.data.pid, execute_if.data.sop, execute_if.data.eop, is_mulh_in, is_alu_w}),
-        .data_out ({mul_valid_out, mul_uuid_out, mul_wid_out, mul_tmask_out, mul_PC_out, mul_rd_out, mul_wb_out, mul_pid_out, mul_sop_out, mul_eop_out, is_mulh_out, is_mul_w_out})
+        .data_in  ({mul_valid_in, execute_if.data.uuid, execute_if.data.wid, execute_if.data.tmask, execute_if.data.PC, execute_if.data.rd, execute_if.data.wb, execute_if.data.pid, execute_if.data.sop, execute_if.data.eop, is_mulh_in, is_alu_w, execute_if.data.op_type == `INST_ALU_MMUL}),
+        .data_out ({mul_valid_out, mul_uuid_out, mul_wid_out, mul_tmask_out, mul_PC_out, mul_rd_out, mul_wb_out, mul_pid_out, mul_sop_out, mul_eop_out, is_mulh_out, is_mul_w_out, mul_is_mmul_out})
     );
 
     assign mul_ready_in = mul_ready_out || ~mul_valid_out;
@@ -331,7 +333,7 @@ module VX_muldiv_unit #(
         .valid_in  ({div_valid_out, mul_valid_out}),
         .ready_in  ({div_ready_out, mul_ready_out}),
         .data_in   ({{div_uuid_out, div_wid_out, div_tmask_out, div_PC_out, div_rd_out, div_wb_out, div_pid_out, div_sop_out, div_eop_out, div_result_out, 1'b1},
-                     {mul_uuid_out, mul_wid_out, mul_tmask_out, mul_PC_out, mul_rd_out, mul_wb_out, mul_pid_out, mul_sop_out, mul_eop_out, mul_result_out, 1'b1}}),
+                     {mul_uuid_out, mul_wid_out, mul_tmask_out, mul_PC_out, mul_rd_out, mul_wb_out, mul_pid_out, mul_sop_out, mul_eop_out, mul_result_out, ~mul_is_mmul_out}}),
         .data_out  ({commit_if.data.uuid, commit_if.data.wid, commit_if.data.tmask, commit_if.data.PC, commit_if.data.rd, commit_if.data.wb, commit_if.data.pid, commit_if.data.sop, commit_if.data.eop, commit_if.data.data, commit_if.data.true_eop}),
         .valid_out (commit_if.valid),
         .ready_out (commit_if.ready),

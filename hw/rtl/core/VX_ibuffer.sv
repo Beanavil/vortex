@@ -44,26 +44,26 @@ module VX_ibuffer import VX_gpu_pkg::*; #(
     localparam ISSUE_MMUL = 1'b1;
 
     wire is_mmul;
-    assign is_mmul = decode_if.data.op_type == `INST_ALU_MMUL;
+    assign is_mmul = decode_if.data.op_type == `INST_ALU_MMUL && decode_if.data.ex_type == `EX_ALU;
 
     for (genvar i = 0; i < `ISSUE_WIDTH; ++i) begin
-        assign readies[i] = !((state_q[i] == ISSUE_NORMAL && is_mmul) || (state_q[i] == ISSUE_MMUL && mmul_count_q[i] == 2'h2));
+        assign readies[i] = !((state_q[i] == ISSUE_NORMAL && is_mmul) || (state_q[i] == ISSUE_MMUL && mmul_count_q[i] < 'h2));
         assign decode_micro_if[i].valid = decode_if.valid;
-        assign decode_micro_if[i].data.op_type = `INST_ALU_ADD;
+        assign decode_micro_if[i].data.op_type = decode_if.data.op_type;
         assign decode_micro_if[i].data.ex_type = `EX_ALU;
         assign decode_micro_if[i].data.uuid = decode_if.data.uuid;
         assign decode_micro_if[i].data.wid = decode_if.data.wid;
         assign decode_micro_if[i].data.tmask = decode_if.data.tmask;
-        assign decode_micro_if[i].data.op_mod = mmul_count_q[i] < 2'h2 ? 3'b010 : 3'b000;
-        // assign decode_micro_if[i].data.wb = mmul_count_q[i] >= 2'h2;
+        assign decode_micro_if[i].data.op_mod = mmul_count_q[i] < 'h2 ? 3'b010 : 3'b000;
+        // assign decode_micro_if[i].data.wb = mmul_count_q[i] >= 'h2;
         assign decode_micro_if[i].data.wb = decode_if.data.wb;
         assign decode_micro_if[i].data.use_PC = decode_if.data.use_PC;
         assign decode_micro_if[i].data.use_imm = decode_if.data.use_imm;
         assign decode_micro_if[i].data.PC = decode_if.data.PC;
         assign decode_micro_if[i].data.imm = decode_if.data.imm;
-        assign decode_micro_if[i].data.rd =  mmul_count_q[i] < 2'h2 ? decode_if.data.rd + `NR_BITS'(mmul_count_q[i]): decode_if.data.rd;
-        assign decode_micro_if[i].data.rs1 = mmul_count_q[i] < 2'h2 ? decode_if.data.rs1 + `NR_BITS'(mmul_count_q[i]) : decode_if.data.rd;
-        assign decode_micro_if[i].data.rs2 = mmul_count_q[i] < 2'h2 ? decode_if.data.rs1 + `NR_BITS'(mmul_count_q[i]) + 'h2 : decode_if.data.rd + 1'b1;
+        assign decode_micro_if[i].data.rd =  mmul_count_q[i] < 'h2 ? decode_if.data.rd + `NR_BITS'(mmul_count_q[i]): decode_if.data.rd;
+        assign decode_micro_if[i].data.rs1 = mmul_count_q[i] < 'h2 ? decode_if.data.rs1 + `NR_BITS'(mmul_count_q[i]) : decode_if.data.rd;
+        assign decode_micro_if[i].data.rs2 = mmul_count_q[i] < 'h2 ? decode_if.data.rs1 + `NR_BITS'(mmul_count_q[i]) + 'h2 : decode_if.data.rd + 1'b1;
         assign decode_micro_if[i].data.rs3 = decode_if.data.rs3;
         assign decode_micro_if[i].data.is_mstore = decode_if.data.is_mstore;
 
@@ -125,42 +125,36 @@ module VX_ibuffer import VX_gpu_pkg::*; #(
     `endif
 
         always @(*) begin
-                assign state_n[i] = state_q[i];
-                assign mmul_count_n[i] = mmul_count_q[i];
-                if ((state_q[i] == ISSUE_NORMAL && is_mmul) || (state_q[i] == ISSUE_MMUL)) begin
-                    assign mmul_count_n[i] = mmul_count_q[i] + 1'b1;
-
-                case (state_q[i])
-                    ISSUE_NORMAL: begin
-                        mmul_count_n[i] = '0;
-                        if (is_mmul) begin
-                            if (ibuf_ready_in[i]) begin
-                                state_n[i] = ISSUE_MMUL;
-                                mmul_count_n[i] = mmul_count_q[i] + 1'b1;
-                            end
+        assign state_n[i] = state_q[i];
+        assign mmul_count_n[i] = mmul_count_q[i];
+            case (state_q[i])
+                ISSUE_NORMAL: begin
+                    if (is_mmul && (&ibuf_ready_in)) begin
+                        state_n[i] = ISSUE_MMUL;
+                        mmul_count_n[i] = mmul_count_q[i] + 1'b1;
+                    end
+                end
+                ISSUE_MMUL: begin
+                    if ((&ibuf_ready_in)) begin
+                        if (mmul_count_q[i] == 'h2) begin
+                            state_n[i] = ISSUE_NORMAL;
+                            mmul_count_n[i] = '0;
+                        end else begin
+                            mmul_count_n[i] = mmul_count_q[i] + 1'b1;
                         end
                     end
-                    ISSUE_MMUL: begin
-                         if (ibuf_ready_in[i]) begin
-                            if (mmul_count_q[i] == 'h2) begin
-                                state_n[i] = ISSUE_NORMAL;
-                            end else begin
-                                mmul_count_n[i] = mmul_count_q[i] + 1'b1;
-                            end
-                        end
-                    end
-                endcase
-            end
+                end
+            endcase
         end
 
         always @(posedge clk) begin
-                if (reset) begin
-                    mmul_count_q[i] <= '0;
-                    state_q[i] <= ISSUE_NORMAL;
-                end else begin
-                    mmul_count_q[i] <= mmul_count_n[i];
-                    state_q[i] <= state_n[i];
-                end
+            if (reset) begin
+                mmul_count_q[i] <= '0;
+                state_q[i] <= ISSUE_NORMAL;
+            end else begin
+                mmul_count_q[i] <= mmul_count_n[i];
+                state_q[i] <= state_n[i];
+            end
         end
     end
 endmodule
