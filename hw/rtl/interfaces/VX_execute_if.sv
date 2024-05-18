@@ -36,6 +36,7 @@ interface VX_execute_if #(
         logic [PID_WIDTH-1:0]           pid;
         logic                           sop;
         logic                           eop;
+        logic                           is_mstore;
     } data_t;
 
     logic  valid;

@@ -174,7 +174,6 @@ module VX_csr_unit import VX_gpu_pkg::*; #(
     
     for (genvar i = 0; i < NUM_LANES; ++i) begin
         assign commit_if.data.data[i] = `XLEN'(csr_commit_data[i]);
-        assign commit_if.data.true_eop = 1'b1;
     end
 
 endmodule

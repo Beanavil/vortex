@@ -37,12 +37,12 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
     localparam BATCH_COUNT  = `ISSUE_WIDTH / BLOCK_SIZE;
     localparam BATCH_COUNT_W= `LOG2UP(BATCH_COUNT);
     localparam ISSUE_W      = `LOG2UP(`ISSUE_WIDTH);
-    localparam IN_DATAW     = `UUID_WIDTH + ISSUE_WIS_W + `NUM_THREADS + `INST_OP_BITS + `INST_MOD_BITS + 1 + 1 + 1 + `XLEN + `XLEN + `NR_BITS + `NT_WIDTH + (3 * `NUM_THREADS * `XLEN);
-    localparam OUT_DATAW    = `UUID_WIDTH + `NW_WIDTH + NUM_LANES + `INST_OP_BITS + `INST_MOD_BITS + 1 + 1 + 1 + `XLEN + `XLEN + `NR_BITS + `NT_WIDTH + (3 * NUM_LANES * `XLEN) + PID_WIDTH + 1 + 1;
+    localparam IN_DATAW     = `UUID_WIDTH + ISSUE_WIS_W + `NUM_THREADS + `INST_OP_BITS + `INST_MOD_BITS + 1 + 1 + 1 + `XLEN + `XLEN + `NR_BITS + `NT_WIDTH + (3 * `NUM_THREADS * `XLEN) + 1;
+    localparam OUT_DATAW    = `UUID_WIDTH + `NW_WIDTH + NUM_LANES + `INST_OP_BITS + `INST_MOD_BITS + 1 + 1 + 1 + `XLEN + `XLEN + `NR_BITS + `NT_WIDTH + (3 * NUM_LANES * `XLEN) + PID_WIDTH + 1 + 1 + 1;
     localparam FANOUT_ENABLE= (`NUM_THREADS > (MAX_FANOUT + MAX_FANOUT/2));
 
     localparam DATA_TMASK_OFF = IN_DATAW - (`UUID_WIDTH + ISSUE_WIS_W + `NUM_THREADS);
-    localparam DATA_REGS_OFF = 0;
+    localparam DATA_REGS_OFF = 1;
 
     wire [`ISSUE_WIDTH-1:0] dispatch_valid;
     wire [`ISSUE_WIDTH-1:0][IN_DATAW-1:0] dispatch_data;
@@ -62,6 +62,7 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
     wire [BLOCK_SIZE-1:0] block_sop;
     wire [BLOCK_SIZE-1:0] block_eop;
     wire [BLOCK_SIZE-1:0] block_done;
+    wire [BLOCK_SIZE-1:0] block_is_mstore;
 
     wire batch_done = (& block_done);
     
@@ -203,6 +204,8 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
             assign block_done[block_idx]  = ~valid_p || ready_p;
         end
 
+        assign block_is_mstore[block_idx] = dispatch_data[issue_idx][0]; // NOTE: offset is from end to start of the interface vx_dispatch_if
+
         wire [ISSUE_ISW_W-1:0] isw;
         if (BATCH_COUNT != 1) begin
             if (BLOCK_SIZE != 1) begin
@@ -237,7 +240,9 @@ module VX_dispatch_unit import VX_gpu_pkg::*; #(
                 block_regs[block_idx][2],
                 block_pid[block_idx],
                 block_sop[block_idx],
-                block_eop[block_idx]}),
+                block_eop[block_idx],
+                block_is_mstore[block_idx]
+                }),
             .data_out  (execute_if[block_idx].data),
             .valid_out (execute_if[block_idx].valid),
             .ready_out (execute_if[block_idx].ready)

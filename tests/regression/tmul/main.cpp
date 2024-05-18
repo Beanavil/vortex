@@ -120,7 +120,7 @@ void cleanup() {
   if (device) {
     vx_mem_free(device, kernel_arg.A_addr);
     vx_mem_free(device, kernel_arg.B_addr);
-   //  vx_mem_free(device, kernel_arg.C_addr);
+    vx_mem_free(device, kernel_arg.C_addr);
     vx_dev_close(device);
   }
 }
@@ -150,14 +150,14 @@ int main(int argc, char *argv[]) {
   std::cout << "allocate device memory" << std::endl;
   RT_CHECK(vx_mem_alloc(device, buf_size, VX_MEM_TYPE_GLOBAL, &kernel_arg.A_addr));
   RT_CHECK(vx_mem_alloc(device, buf_size, VX_MEM_TYPE_GLOBAL, &kernel_arg.B_addr));
-  // RT_CHECK(vx_mem_alloc(device, buf_size, VX_MEM_TYPE_GLOBAL, &kernel_arg.C_addr));
+  RT_CHECK(vx_mem_alloc(device, buf_size, VX_MEM_TYPE_GLOBAL, &kernel_arg.C_addr));
 
   kernel_arg.num_tasks = num_points;
   kernel_arg.size = size;
 
   std::cout << "dev_src0=0x" << std::hex << kernel_arg.A_addr << std::endl;
   std::cout << "dev_src1=0x" << std::hex << kernel_arg.B_addr << std::endl;
-  // std::cout << "dev_dst=0x" << std::hex << kernel_arg.C_addr << std::endl;
+  std::cout << "dev_dst=0x" << std::hex << kernel_arg.C_addr << std::endl;
 
   // allocate staging buffer
   std::cout << "allocate staging buffer" << std::endl;
@@ -172,13 +172,24 @@ int main(int argc, char *argv[]) {
   // generate source data
   std::vector<TYPE> src_A(num_points);
   std::vector<TYPE> src_B(num_points);
+  std::vector<TYPE> src_C(num_points);
+
   std::vector<TYPE> refs(num_points);
-  for (uint32_t i = 0; i < size; ++i) {
-    for (uint32_t j = 0; j < size; ++j) {
-      src_A[i * size + j] = static_cast<TYPE>(i == j);
-      src_B[i * size + j] = static_cast<TYPE>(i == j);
-    }
+  for (uint32_t i = 0; i < num_points; ++i) {
+      src_A[i] = i;
+      src_B[i] = i + 20;
   }
+  std::cout << "HOST: A = [";
+  for (uint32_t i = 0; i < num_points; ++i) {
+    std::cout << src_A[i] << " ";
+  }
+  std::cout << "]"<< std::endl;
+
+  std::cout << "HOST: B = [";
+  for (uint32_t i = 0; i < num_points; ++i) {
+    std::cout << src_B[i] << " ";
+  }
+  std::cout << "]"<< std::endl;
 
   // upload source buffer0
   {
@@ -200,10 +211,11 @@ int main(int argc, char *argv[]) {
     RT_CHECK(vx_copy_to_dev(device, kernel_arg.B_addr, staging_buf.data(), buf_size));
   }
 
+
   // clear destination buffer
-  // std::cout << "clear destination buffer" << std::endl;
-  // memset(staging_buf.data(), 0, num_points * sizeof(TYPE));
-  // RT_CHECK(vx_copy_to_dev(device, kernel_arg.C_addr, staging_buf.data(), buf_size));
+  std::cout << "clear destination buffer" << std::endl;
+  memset(staging_buf.data(), 0, num_points * sizeof(TYPE));
+  RT_CHECK(vx_copy_to_dev(device, kernel_arg.C_addr, staging_buf.data(), buf_size));
 
   auto time_start = std::chrono::high_resolution_clock::now();
 
@@ -215,9 +227,21 @@ int main(int argc, char *argv[]) {
   std::cout << "wait for completion" << std::endl;
   RT_CHECK(vx_ready_wait(device, VX_MAX_TIMEOUT));
 
+
   auto time_end = std::chrono::high_resolution_clock::now();
   double elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();
   printf("Elapsed time: %lg ms\n", elapsed);
+
+  // download destination buffer
+  std::cout << "download destination buffer" << std::endl;
+  RT_CHECK(vx_copy_from_dev(device, staging_buf.data(), kernel_arg.C_addr, buf_size));
+
+  auto buf_ptr = (TYPE*)staging_buf.data();
+  std::cout << "HOST: C = [";
+  for (uint32_t i = 0; i < num_points; ++i) {
+    std::cout << buf_ptr[i] << " ";
+  }
+  std::cout << "]"<< std::endl;
 
   // cleanup
   std::cout << "cleanup" << std::endl;
