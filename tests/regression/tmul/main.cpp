@@ -175,11 +175,9 @@ int main(int argc, char *argv[]) {
   std::vector<TYPE> src_C(num_points);
 
   std::vector<TYPE> refs(num_points);
-  for (uint32_t i = 0; i < size; ++i) {
-    for (uint32_t j = 0; j < size; ++j) {
-      src_A[i * size + j] = static_cast<TYPE>(i == j);
-      src_B[i * size + j] = static_cast<TYPE>(i == j);
-    }
+  for (uint32_t i = 0; i < num_points; ++i) {
+      src_A[i] = i;
+      src_B[i] = i + 20;
   }
   std::cout << "HOST: A = [";
   for (uint32_t i = 0; i < num_points; ++i) {
