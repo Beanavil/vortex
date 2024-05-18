@@ -181,13 +181,13 @@ int main(int argc, char *argv[]) {
   }
   std::cout << "HOST: A = [";
   for (uint32_t i = 0; i < num_points; ++i) {
-    std::cout << src_A[i] << " ";
+    std::cout << std::dec << src_A[i] << " ";
   }
   std::cout << "]"<< std::endl;
 
   std::cout << "HOST: B = [";
   for (uint32_t i = 0; i < num_points; ++i) {
-    std::cout << src_B[i] << " ";
+    std::cout << std::dec << src_B[i] << " ";
   }
   std::cout << "]"<< std::endl;
 
