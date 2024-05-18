@@ -58,7 +58,7 @@ module VX_muldiv_unit #(
     wire mul_valid_out;
     wire mul_ready_out;
     
-    wire is_mulh_in      = `INST_M_IS_MULH(muldiv_op);
+    wire is_mulh_in      = `INST_M_IS_MULH(muldiv_op) && ~(execute_if.data.op_type == `INST_ALU_MMUL);
     wire is_signed_mul_a = `INST_M_SIGNED_A(muldiv_op);
     wire is_signed_mul_b = is_signed_op;
 
