@@ -110,7 +110,7 @@ module VX_int_unit #(
         wire [`XLEN-1:0] sub_slt_br_result = (is_sub_op && ~is_br_op) ? sub_result[i][`XLEN-1:0] : slt_br_result;
         always @(*) begin
             case ({is_alu_w, op_class})                        
-                3'b000: alu_result[i] = add_result[i];      // ADD, LUI, AUIPC
+                3'b000: alu_result[i] = add_result[i];      // ADD, LUI, AUIPC, MMUL
                 3'b001: alu_result[i] = sub_slt_br_result;  // SUB, SLTU, SLTI, BR*
                 3'b010: alu_result[i] = shr_result[i];      // SRL, SRA, SRLI, SRAI
                 3'b011: alu_result[i] = msc_result[i];      // AND, OR, XOR, SLL, SLLI

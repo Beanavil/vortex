@@ -517,7 +517,7 @@ module VX_decode  #(
                     3'h1: begin
                         ex_type = `EX_LSU;
                         op_type = `INST_OP_BITS'(`INST_LSU_MSTORE);
-                        imm     = '0; // TODO
+                        imm     = '0;
                         use_imm = 1;
                         is_mstore = 1'b1;
                         `USED_IREG (rs1);
@@ -527,6 +527,13 @@ module VX_decode  #(
                         end else
                     `endif
                         `USED_IREG (rs2);
+                    end
+                    3'h2: begin
+                        ex_type = `EX_ALU;
+                        op_type = `INST_OP_BITS'(`INST_ALU_MMUL);
+                        `USED_IREG (rs1);
+                        `USED_IREG (rs2);
+                        `USED_IREG (rd);
                     end
                     default:;
                 endcase
@@ -558,7 +565,7 @@ module VX_decode  #(
 
     assign decode_sched_if.valid    = fetch_fire;
     assign decode_sched_if.wid      = fetch_if.data.wid;
-    assign decode_sched_if.is_wstall = is_wstall;
+    assign decode_sched_if.is_wstall= is_wstall;
 `ifndef L1_ENABLE
     assign fetch_if.ibuf_pop = decode_if.ibuf_pop;
 `endif
