@@ -9,6 +9,7 @@ void kernel_body(int task_id, kernel_arg_t* __UNIFORM__ arg) {
 	TYPE* B = reinterpret_cast<TYPE*>(arg->B_addr);
 	TYPE* C = reinterpret_cast<TYPE*>(arg->C_addr);
 	vx_mload(A, B);
+	vx_mmul();
 	vx_mstore(C);
 
 	vx_printf("DEVICE: A=%p A[0]=%d A[1]=%d A[2]=%d A[3]=%d\n", A, A[0], A[1], A[2], A[3]);
