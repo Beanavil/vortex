@@ -34,6 +34,11 @@
 
 `define NUM_IREGS       32
 
+`define M_INSTR_BITS    2
+`define MLOAD_ID    	`M_INSTR_BITS'(1)
+`define MSTORE_ID    	`M_INSTR_BITS'(2)
+`define MMUL_ID    	`M_INSTR_BITS'(3)
+
 `define NRI_BITS        `CLOG2(`NUM_IREGS)
 
 `ifdef EXT_F_ENABLE
@@ -120,7 +125,9 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
+`define INST_ALU_BITS        4
 `define INST_ALU_ADD         4'b0000
+`define INST_ALU_MMUL        4'b0001
 `define INST_ALU_LUI         4'b0010
 `define INST_ALU_AUIPC       4'b0011
 `define INST_ALU_SLTU        4'b0100
@@ -134,9 +141,6 @@
 `define INST_ALU_SLL         4'b1111
 `define INST_ALU_OTHER       4'b0111
 
-// TODO: check 
-`define INST_ALU_MMUL        4'b0001
-`define INST_ALU_BITS        4
 `define INST_ALU_CLASS(op)   op[3:2]
 `define INST_ALU_SIGNED(op)  op[0]
 `define INST_ALU_IS_SUB(op)  op[1]
@@ -429,7 +433,11 @@
     data.rs1_data, \
     data.rs2_data, \
     data.rs3_data, \
-    data.is_mstore }
+    data.m_instr_cnt, \
+    data.m_instr_id, \
+    data.m_type, \
+    data.m_row_size \
+    }
 
 ///////////////////////////////////////////////////////////////////////////////
 

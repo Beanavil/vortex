@@ -30,7 +30,7 @@ module VX_scoreboard import VX_gpu_pkg::*; #(
     VX_ibuffer_if.master    scoreboard_if [`ISSUE_WIDTH]
 );
     `UNUSED_PARAM (CORE_ID)
-    localparam DATAW = `UUID_WIDTH + ISSUE_WIS_W + `NUM_THREADS + `XLEN + `EX_BITS + `INST_OP_BITS + `INST_MOD_BITS + 1 + 1 + `XLEN + (`NR_BITS * 4) + 1 + 1;
+    localparam DATAW = `UUID_WIDTH + ISSUE_WIS_W + `NUM_THREADS + `XLEN + `EX_BITS + `INST_OP_BITS + `INST_MOD_BITS + 1 + 1 + `XLEN + (`NR_BITS * 4) + 1 + `M_INSTR_BITS + 4 + 1 + 4;
 
 `ifdef PERF_ENABLE
     reg [`ISSUE_WIDTH-1:0][`NUM_EX_UNITS-1:0] perf_issue_units_per_cycle;
@@ -101,16 +101,13 @@ module VX_scoreboard import VX_gpu_pkg::*; #(
         wire writeback_fire = writeback_if[i].valid && writeback_if[i].data.eop;
 
         wire inuse_rd  = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd];
-        wire inuse_rd1 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd + 1] & (ibuffer_if[i].data.op_type == `INST_LSU_MLOAD && ibuffer_if[i].data.ex_type == `EX_LSU);
-        wire inuse_rd2 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd + 2] & (ibuffer_if[i].data.op_type == `INST_LSU_MLOAD && ibuffer_if[i].data.ex_type == `EX_LSU);
-        wire inuse_rd3 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd + 3] & (ibuffer_if[i].data.op_type == `INST_LSU_MLOAD && ibuffer_if[i].data.ex_type == `EX_LSU);
-
         wire inuse_rs1 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs1];
-
         wire inuse_rs2 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2];
-        wire inuse_rs2a = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 1] & ibuffer_if[i].data.is_mstore;
-        wire inuse_rs2b = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 2] & ibuffer_if[i].data.is_mstore;
-        wire inuse_rs2c = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 3] & ibuffer_if[i].data.is_mstore;
+
+        // wire is_mstore = ibuffer_if[i].data.m_instr_id == `MSTORE_ID;
+        // wire inuse_rs2a = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 1] & is_mstore;
+        // wire inuse_rs2b = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 2] & is_mstore;
+        // wire inuse_rs2c = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 3] & is_mstore;
 
         wire inuse_rs3 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs3];
 
@@ -161,7 +158,7 @@ module VX_scoreboard import VX_gpu_pkg::*; #(
         assign perf_issue_stalls_per_cycle[i] = ibuffer_if[i].valid && ~ibuffer_if[i].ready;
     `endif
 
-        wire [9:0] operands_busy = {inuse_rd, inuse_rd1, inuse_rd2, inuse_rd3, inuse_rs1, inuse_rs2, inuse_rs2a, inuse_rs2b, inuse_rs2c, inuse_rs3};
+        wire [3:0] operands_busy = {inuse_rd, inuse_rs1, inuse_rs2, inuse_rs3};
         wire operands_ready = ~(| operands_busy);
         
         wire stg_valid_in, stg_ready_in;
@@ -190,11 +187,6 @@ module VX_scoreboard import VX_gpu_pkg::*; #(
                 end
                 if (ibuffer_if[i].valid && ibuffer_if[i].ready && ibuffer_if[i].data.wb) begin
                     inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd] <= 1;
-                    if (ibuffer_if[i].data.op_type == `INST_LSU_MLOAD && ibuffer_if[i].data.ex_type == `EX_LSU) begin
-                      inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd + 1] <= 1;
-                      inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd + 2] <= 1;
-                      inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd + 3] <= 1;
-                    end
                 end
             end
         `ifdef PERF_ENABLE
@@ -216,9 +208,9 @@ module VX_scoreboard import VX_gpu_pkg::*; #(
             end else begin
                 if (ibuffer_if[i].valid && ~ibuffer_if[i].ready) begin
                 `ifdef DBG_TRACE_CORE_PIPELINE
-                    `TRACE(3, ("%d: *** core%0d-scoreboard-stall: wid=%0d, PC=0x%0h, tmask=%b, cycles=%0d, inuse=%b, is_mstore=%b (#%0d)\n",
+                    `TRACE(3, ("%d: *** core%0d-scoreboard-stall: wid=%0d, PC=0x%0h, tmask=%b, cycles=%0d, inuse=%b (#%0d)\n",
                         $time, CORE_ID, wis_to_wid(ibuffer_if[i].data.wis, i), ibuffer_if[i].data.PC, ibuffer_if[i].data.tmask, timeout_ctr,
-                        operands_busy, ibuffer_if[i].data.is_mstore, ibuffer_if[i].data.uuid));
+                        operands_busy, ibuffer_if[i].data.uuid));
                 `endif
                     timeout_ctr <= timeout_ctr + 1;
                 end else if (ibuffer_if[i].valid && ibuffer_if[i].ready) begin

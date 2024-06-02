@@ -68,19 +68,6 @@ public:
   }
 };
 
-/*
-static void matmul_cpu(TYPE* out, const TYPE* A, const TYPE* B, uint32_t width, uint32_t height) {
-  for (uint32_t row = 0; row < height; ++row) {
-    for (uint32_t col = 0; col < width; ++col) {
-      TYPE sum(0);
-      for (uint32_t e = 0; e < width; ++e) {
-          sum += A[row * width + e] * B[e * width + col];
-      }
-      out[row * width + col] = sum;
-    }
-  }
-}
-*/
 
 const char* kernel_file = "kernel.bin";
 uint32_t size = 2;
@@ -112,6 +99,18 @@ static void parse_args(int argc, char **argv) {
     default:
       show_usage();
       exit(-1);
+    }
+  }
+}
+
+static void matmul_cpu(TYPE* out, const TYPE* A, const TYPE* B, uint32_t width, uint32_t height) {
+  for (uint32_t row = 0; row < height; ++row) {
+    for (uint32_t col = 0; col < width; ++col) {
+      TYPE sum(0);
+      for (uint32_t e = 0; e < width; ++e) {
+          sum += A[row * width + e] * B[e * width + col];
+      }
+      out[row * width + col] = sum;
     }
   }
 }
@@ -179,17 +178,8 @@ int main(int argc, char *argv[]) {
       src_A[i] = i;
       src_B[i] = i + 20;
   }
-  std::cout << "HOST: A = [";
-  for (uint32_t i = 0; i < num_points; ++i) {
-    std::cout << std::dec << src_A[i] << " ";
-  }
-  std::cout << "]"<< std::endl;
 
-  std::cout << "HOST: B = [";
-  for (uint32_t i = 0; i < num_points; ++i) {
-    std::cout << std::dec << src_B[i] << " ";
-  }
-  std::cout << "]"<< std::endl;
+  matmul_cpu(refs.data(), src_A.data(), src_B.data(), size, size);
 
   // upload source buffer0
   {
@@ -236,12 +226,24 @@ int main(int argc, char *argv[]) {
   std::cout << "download destination buffer" << std::endl;
   RT_CHECK(vx_copy_from_dev(device, staging_buf.data(), kernel_arg.C_addr, buf_size));
 
-  auto buf_ptr = (TYPE*)staging_buf.data();
-  std::cout << "HOST: C = [";
-  for (uint32_t i = 0; i < num_points; ++i) {
-    std::cout << buf_ptr[i] << " ";
+  // verify result
+  std::cout << "verify result" << std::endl;  
+  {
+    int errors = 0;
+    auto buf_ptr = (TYPE*)staging_buf.data();
+    for (uint32_t i = 0; i < refs.size(); ++i) {
+      auto ref = refs[i];
+      auto cur = buf_ptr[i];
+      if (!Comparator<TYPE>::compare(cur, ref, i, errors)) {
+        ++errors;
+      }
+    }
+    if (errors != 0) {
+      std::cout << "Found " << std::dec << errors << " errors!" << std::endl;
+      std::cout << "FAILED!" << std::endl;
+      return 1;  
+    }
   }
-  std::cout << "]"<< std::endl;
 
   // cleanup
   std::cout << "cleanup" << std::endl;

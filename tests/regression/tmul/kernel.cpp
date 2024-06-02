@@ -8,11 +8,13 @@ void kernel_body(int task_id, kernel_arg_t* __UNIFORM__ arg) {
 	TYPE* A = reinterpret_cast<TYPE*>(arg->A_addr);
 	TYPE* B = reinterpret_cast<TYPE*>(arg->B_addr);
 	TYPE* C = reinterpret_cast<TYPE*>(arg->C_addr);
-	vx_mload(A, B);
-	vx_mmul();
-	vx_mstore(C);
 
-	vx_printf("DEVICE: C=%p C[0]=%d C[1]=%d C[2]=%d C[3]=%d\n", C, C[0], C[1], C[2], C[3]);
+	vx_printf("[DEVICE]: wid=%d tid=%d\n tmask=%tid", vx_warp_id(),vx_thread_id(), vx_thread_mask());
+
+	vx_mload_A_2x2(A, 4);
+	vx_mload_B_2x2(B, 4);
+	vx_mmul_2x2();
+	vx_mstore_2x2 (C, 4);
 }
 
 int main() {
