@@ -158,82 +158,93 @@ inline void vx_barrier(unsigned barried_id, unsigned num_warps) {
 
 // Special matrix operations
 // Matrices load
-inline void vx_mload_A_2m2n2k(int* addr, unsigned int stride) {
-
+inline void vx_mload_a_2m2n2k_u32(int* addr, unsigned int stride) {
+    int rd;
     //  +--------------+-----+-------+----+---------+
     //  | simm12[11:0] | rs1 | func3 | rd | opcode6 |
     //  +--------------+-----+-------+----+---------+
     //  31             20    15      12   7         0
 
     // 'I type: .insn i opcode6, func3, rd, simm12(rs1)'
-    asm volatile (".insn i %0, 0, x28, %2(%1)" :: "i"(RISCV_CUSTOM2), "r"(addr), "i"(stride));
+    asm volatile (".insn i %1, 0, %0, %3(%2)" : "=r"(rd) : "i"(RISCV_CUSTOM2), "r"(addr), "i"(stride));
 }
 
-inline void vx_mload_B_2m2n2k(int* addr, int stride) {
-
+inline void vx_mload_b_2m2n2k_u32(int* addr, int stride) {
+    int rd;
     //  +--------------+-----+-------+----+---------+
     //  | simm12[11:0] | rs1 | func3 | rd | opcode6 |
     //  +--------------+-----+-------+----+---------+
     //  31             20    15      12   7         0
 
     // 'I type: .insn i opcode6, func3, rd, simm12(rs1)'
-    asm volatile (".insn i %0, 1, x30, %2(%1)" :: "i"(RISCV_CUSTOM2), "r"(addr), "i"(stride));
+    asm volatile (".insn i %1, 1, %0, %3(%2)" : "=r"(rd) : "i"(RISCV_CUSTOM2), "r"(addr), "i"(stride));
 }
 
-inline void vx_mload_A_4m4n4k(int* addr, int stride) {
-
+inline void vx_mload_a_4m4n4k_u32(int* addr, int stride) {
+    int rd;
     //  +--------------+-----+-------+----+---------+
     //  | simm12[11:0] | rs1 | func3 | rd | opcode6 |
     //  +--------------+-----+-------+----+---------+
     //  31             20    15      12   7         0
 
     // 'I type: .insn i opcode6, func3, rd, simm12(rs1)'
-    asm volatile (".insn i %0, 2, x30, %2(%1)" :: "i"(RISCV_CUSTOM2), "r"(addr), "i"(stride));
+    asm volatile (".insn i %1, 2, %0, %3(%2)" : "=r"(rd) : "i"(RISCV_CUSTOM2), "r"(addr), "i"(stride));
 }
 
-inline void vx_mload_B_4m4n4k(int* addr, int stride) {
-
+inline void vx_mload_b_4m4n4k_u32(int* addr, int stride) {
+    int rd;
     //  +--------------+-----+-------+----+---------+
     //  | simm12[11:0] | rs1 | func3 | rd | opcode6 |
     //  +--------------+-----+-------+----+---------+
     //  31             20    15      12   7         0
 
     // 'I type: .insn i opcode6, func3, rd, simm12(rs1)'
-    asm volatile (".insn i %0, 3, x30, %2(%1)" :: "i"(RISCV_CUSTOM2), "r"(addr), "i"(stride));
+    asm volatile (".insn i %1, 3, %0, %3(%2)" : "=r"(rd) : "i"(RISCV_CUSTOM2), "r"(addr), "i"(stride));
 }
 
-inline void vx_mmul_2m2n2k() {
-
+inline void vx_mmul_2m2n2k_u32() {
+    int rd, rs1, rs2;
     //    +-------+-----+-----+-------+----+---------+
     //    | func7 | rs2 | rs1 | func3 | rd | opcode6 |
     //    +-------+-----+-----+-------+----+---------+
     //    31      25    20    15      12   7        0
 
     //'R type: .insn r opcode6, func3, func7, rd, rs1, rs2'
-    asm volatile (".insn r %0, 4, 0, x28, x28, zero" :: "i"(RISCV_CUSTOM2));
+    asm volatile (".insn r %3, 4, 0, %0, %1, %2" : "=r"(rd), "=r"(rs1), "=r"(rs2) : "i"(RISCV_CUSTOM2));
 }
 
-inline void vx_mmul_4m4n4k() {
-
+inline void vx_mmul_4m4n4k_u32() {
+    int rd, rs1, rs2;
     //    +-------+-----+-----+-------+----+---------+
     //    | func7 | rs2 | rs1 | func3 | rd | opcode6 |
     //    +-------+-----+-----+-------+----+---------+
     //    31      25    20    15      12   7        0
 
     //'R type: .insn r opcode6, func3, func7, rd, rs1, rs2'
-    asm volatile (".insn r %0, 5, 0, x28, x28, zero" :: "i"(RISCV_CUSTOM2));
+    asm volatile (".insn r %1, 5, 0, %0, x28, x28" : "=r"(rd) : "i"(RISCV_CUSTOM2));
 }
 
 
-inline void vx_mstore_C_2m2n2k(int* output, unsigned int stride) {
-
+inline void vx_mstore_c_2m2n2k_u32(int* output, unsigned int stride) {
+    int rs1;
     //  +--------------+-----+-----+-------+-------------+---------+
     //  | simm12[11:5] | rs2 | rs1 | func3 | simm12[4:0] | opcode6 |
     //  +--------------+-----+-----+-------+-------------+---------+
     //  31             25    20    15      12            7         0
 
     //  S type: .insn s opcode6, func3, rs2, simm12(rs1)
-    asm volatile (".insn s %1, 6, x28, %2(%0)" :: "r"(output), "i"(RISCV_CUSTOM2),"i"(stride));
+    asm volatile (".insn s %1, 6, %0, %3(%2)" : "=r"(rs1) : "i"(RISCV_CUSTOM2), "r"(output),"i"(stride));
+}
+
+inline void vx_mstore_c_4m4n4k_u32(int* output, unsigned int stride) {
+    int rs1;
+    //  +--------------+-----+-----+-------+-------------+---------+
+    //  | simm12[11:5] | rs2 | rs1 | func3 | simm12[4:0] | opcode6 |
+    //  +--------------+-----+-----+-------+-------------+---------+
+    //  31             25    20    15      12            7         0
+
+    //  S type: .insn s opcode6, func3, rs2, simm12(rs1)
+    asm volatile (".insn s %1, 7, %0, %3(%2)" : "=r"(rs1) : "i"(RISCV_CUSTOM2), "r"(output), "i"(stride));
 }
 
 
