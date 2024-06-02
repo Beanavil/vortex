@@ -158,7 +158,7 @@ inline void vx_barrier(unsigned barried_id, unsigned num_warps) {
 
 // Special matrix operations
 // Matrices load
-inline void vx_mload_A_2x2(int* addr, unsigned int stride) {
+inline void vx_mload_A_2m2n2k(int* addr, unsigned int stride) {
 
     //  +--------------+-----+-------+----+---------+
     //  | simm12[11:0] | rs1 | func3 | rd | opcode6 |
@@ -169,7 +169,7 @@ inline void vx_mload_A_2x2(int* addr, unsigned int stride) {
     asm volatile (".insn i %0, 0, x28, %2(%1)" :: "i"(RISCV_CUSTOM2), "r"(addr), "i"(stride));
 }
 
-inline void vx_mload_B_2x2(int* addr, int stride) {
+inline void vx_mload_B_2m2n2k(int* addr, int stride) {
 
     //  +--------------+-----+-------+----+---------+
     //  | simm12[11:0] | rs1 | func3 | rd | opcode6 |
@@ -180,7 +180,7 @@ inline void vx_mload_B_2x2(int* addr, int stride) {
     asm volatile (".insn i %0, 1, x30, %2(%1)" :: "i"(RISCV_CUSTOM2), "r"(addr), "i"(stride));
 }
 
-inline void vx_mload_A_4x4(int* addr, int stride) {
+inline void vx_mload_A_4m4n4k(int* addr, int stride) {
 
     //  +--------------+-----+-------+----+---------+
     //  | simm12[11:0] | rs1 | func3 | rd | opcode6 |
@@ -191,7 +191,7 @@ inline void vx_mload_A_4x4(int* addr, int stride) {
     asm volatile (".insn i %0, 2, x30, %2(%1)" :: "i"(RISCV_CUSTOM2), "r"(addr), "i"(stride));
 }
 
-inline void vx_mload_B_4x4(int* addr, int stride) {
+inline void vx_mload_B_4m4n4k(int* addr, int stride) {
 
     //  +--------------+-----+-------+----+---------+
     //  | simm12[11:0] | rs1 | func3 | rd | opcode6 |
@@ -202,7 +202,7 @@ inline void vx_mload_B_4x4(int* addr, int stride) {
     asm volatile (".insn i %0, 3, x30, %2(%1)" :: "i"(RISCV_CUSTOM2), "r"(addr), "i"(stride));
 }
 
-inline void vx_mmul_2x2() {
+inline void vx_mmul_2m2n2k() {
 
     //    +-------+-----+-----+-------+----+---------+
     //    | func7 | rs2 | rs1 | func3 | rd | opcode6 |
@@ -213,7 +213,7 @@ inline void vx_mmul_2x2() {
     asm volatile (".insn r %0, 4, 0, x28, x28, zero" :: "i"(RISCV_CUSTOM2));
 }
 
-inline void vx_mmul_4x4() {
+inline void vx_mmul_4m4n4k() {
 
     //    +-------+-----+-----+-------+----+---------+
     //    | func7 | rs2 | rs1 | func3 | rd | opcode6 |
@@ -225,7 +225,7 @@ inline void vx_mmul_4x4() {
 }
 
 
-inline void vx_mstore_2x2(int* output, unsigned int stride) {
+inline void vx_mstore_C_2m2n2k(int* output, unsigned int stride) {
 
     //  +--------------+-----+-----+-------+-------------+---------+
     //  | simm12[11:5] | rs2 | rs1 | func3 | simm12[4:0] | opcode6 |
