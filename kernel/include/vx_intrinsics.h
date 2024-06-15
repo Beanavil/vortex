@@ -213,6 +213,7 @@ inline void vx_mmul_2x2() {
     asm volatile (".insn r %0, 4, 0, x28, x28, zero" :: "i"(RISCV_CUSTOM2));
 }
 
+
 inline void vx_mmul_4x4() {
 
     //    +-------+-----+-----+-------+----+---------+
@@ -236,6 +237,17 @@ inline void vx_mstore_2x2(int* output, unsigned int stride) {
     asm volatile (".insn s %1, 6, x28, %2(%0)" :: "r"(output), "i"(RISCV_CUSTOM2),"i"(stride));
 }
 
+
+inline void vx_madd_2x2() {
+
+//      +-------+-----+-----+-------+----+---------+
+//      | func7 | rs2 | rs1 | func3 | rd | opcode6 |
+//      +-------+-----+-----+-------+----+---------+
+//      31      25    20    15      12   7        0
+//
+//	R type: .insn r opcode6, func3, func7, rd, rs1, rs2
+    asm volatile (".insn r %0, 7, 0, x24, x24, x28" :: "i"(RISCV_CUSTOM2));
+}
 
 // Return current thread identifier
 inline int vx_thread_id() {

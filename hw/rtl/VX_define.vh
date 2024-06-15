@@ -20,6 +20,8 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
+`define NGT_BITS	`CLOG2(`NUM_WARPS * `NUM_THREADS)
+
 `define NW_BITS         `CLOG2(`NUM_WARPS)
 `define NC_WIDTH        `UP(`NC_BITS)
 
@@ -34,10 +36,11 @@
 
 `define NUM_IREGS       32
 
-`define M_INSTR_BITS    2
+`define M_INSTR_BITS    3
 `define MLOAD_ID    	`M_INSTR_BITS'(1)
 `define MSTORE_ID    	`M_INSTR_BITS'(2)
 `define MMUL_ID    	`M_INSTR_BITS'(3)
+`define MADD_ID    	`M_INSTR_BITS'(4)
 
 `define NRI_BITS        `CLOG2(`NUM_IREGS)
 
@@ -127,6 +130,7 @@
 
 `define INST_ALU_BITS        4
 `define INST_ALU_ADD         4'b0000
+`define INST_ALU_MADD        4'b0000
 `define INST_ALU_MMUL        4'b0001
 `define INST_ALU_LUI         4'b0010
 `define INST_ALU_AUIPC       4'b0011

@@ -601,6 +601,17 @@ module VX_decode  #(
                     `endif
                         `USED_IREG (rs2);
                     end
+
+                    // MADD
+                    3'h7: begin
+                        op_type = `INST_OP_BITS'(`INST_ALU_MADD);
+                        ex_type = `EX_ALU;
+                        m_instr_id = `MADD_ID;
+                        op_mod = '0;
+                        `USED_IREG (rs1);
+                        `USED_IREG (rs2);
+                        `USED_IREG (rd);
+                    end
                     default:;
                 endcase
             end

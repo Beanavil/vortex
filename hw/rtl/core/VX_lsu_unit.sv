@@ -98,23 +98,24 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
     // Full address calculation
     wire [NUM_LANES-1:0][`XLEN-1:0] full_addr;
     for (genvar i = 0; i < NUM_LANES; ++i) begin
+        wire [`NGT_BITS-1:0] gtid =  (`NGT_BITS)'(i) + ((`NGT_BITS)'(execute_if[0].data.wid) << `NT_BITS );
         always @(*) begin
             if (is_mload) begin
                 if (execute_if[0].data.m_type == 0) begin
-                    if (i < execute_if[0].data.m_row_size) begin
+                    if (gtid < (`NGT_BITS)'(execute_if[0].data.m_row_size)) begin
                         full_addr[i] = execute_if[0].data.rs1_data[i] + execute_if[0].data.imm * execute_if[0].data.m_instr_cnt;
                     end else begin
                         full_addr[i] = execute_if[0].data.rs1_data[i] + execute_if[0].data.imm * execute_if[0].data.m_instr_cnt + execute_if[0].data.m_row_size * (`XLEN >> 3);
                     end
                 end else begin
-                    if (~i[0]) begin
+                    if (~gtid[0]) begin
                         full_addr[i] = execute_if[0].data.rs1_data[i] + execute_if[0].data.m_instr_cnt * execute_if[0].data.m_row_size * (`XLEN >> 3);
                     end else begin
                         full_addr[i] = execute_if[0].data.rs1_data[i] + execute_if[0].data.m_instr_cnt * execute_if[0].data.m_row_size * (`XLEN >> 3) + execute_if[0].data.imm;
                     end
                 end
             end else if (is_mstore) begin 
-                full_addr[i] =  execute_if[0].data.rs1_data[i] + execute_if[0].data.imm * i;
+                full_addr[i] =  execute_if[0].data.rs1_data[i] + execute_if[0].data.imm * gtid;
             end else begin
                 full_addr[i] =  execute_if[0].data.rs1_data[i] + execute_if[0].data.imm;
             end

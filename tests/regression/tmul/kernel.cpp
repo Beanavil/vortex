@@ -8,13 +8,20 @@ void kernel_body(int task_id, kernel_arg_t* __UNIFORM__ arg) {
 	TYPE* A = reinterpret_cast<TYPE*>(arg->A_addr);
 	TYPE* B = reinterpret_cast<TYPE*>(arg->B_addr);
 	TYPE* C = reinterpret_cast<TYPE*>(arg->C_addr);
-
-	vx_printf("[DEVICE]: wid=%d tid=%d\n tmask=%tid", vx_warp_id(),vx_thread_id(), vx_thread_mask());
+	TYPE* D = reinterpret_cast<TYPE*>(arg->D_addr);
 
 	vx_mload_A_2x2(A, 4);
 	vx_mload_B_2x2(B, 4);
 	vx_mmul_2x2();
-	vx_mstore_2x2 (C, 4);
+
+	//  x24 <- vx_mload_A_2x2_x24(D, 4);
+	asm volatile (".insn i %0, 0, x24, %2(%1)" :: "i"(0x5b), "r"(D), "i"(4));
+	vx_fence();
+	vx_madd_2x2();
+
+	// vx_mstore_2x2(C, 4);  
+	// C <- x24[0..threads-1];
+	asm volatile (".insn s %1, 6, x24, %2(%0)" :: "r"(C), "i"(0x5b),"i"(4));
 }
 
 int main() {
