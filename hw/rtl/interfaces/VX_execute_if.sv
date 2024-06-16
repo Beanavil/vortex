@@ -38,7 +38,7 @@ interface VX_execute_if #(
         logic                           eop;
         logic [3:0]                     m_instr_cnt;
         logic [`M_INSTR_BITS-1:0]       m_instr_id;
-        logic                           m_type;
+        logic [`M_TYPE_BITS-1:0]        m_type;
         logic [3:0]                     m_row_size;
     } data_t;
 

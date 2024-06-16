@@ -28,7 +28,7 @@ module VX_ibuffer import VX_gpu_pkg::*; #(
     `UNUSED_PARAM (CORE_ID)
 
     localparam ISW_WIDTH  = `LOG2UP(`ISSUE_WIDTH);
-    localparam DATAW = `UUID_WIDTH + ISSUE_WIS_W + `NUM_THREADS + `XLEN + 1 + `EX_BITS + `INST_OP_BITS + `INST_MOD_BITS + 1 + 1 + `XLEN + (`NR_BITS * 4) + 1 + `M_INSTR_BITS + 4 + 4;
+    localparam DATAW = `UUID_WIDTH + ISSUE_WIS_W + `NUM_THREADS + `XLEN + 1 + `EX_BITS + `INST_OP_BITS + `INST_MOD_BITS + 1 + 1 + `XLEN + (`NR_BITS * 4) + `M_TYPE_BITS + `M_INSTR_BITS + 4 + 4;
 
     wire [`ISSUE_WIDTH-1:0] ibuf_ready_in;
     wire [`ISSUE_WIDTH-1:0] readies;
@@ -47,9 +47,10 @@ module VX_ibuffer import VX_gpu_pkg::*; #(
     localparam ISSUE_MLOAD = 2'b01;
     localparam ISSUE_MMUL = 2'b10;
 
-    wire is_mload, is_mmul;
-    assign is_mload = (decode_if.data.m_instr_id == `MLOAD_ID && decode_if.valid);
-    assign is_mmul = (decode_if.data.m_instr_id == `MMUL_ID && decode_if.valid);
+    wire is_mload_AB, is_mload_C, is_mmul;
+    assign is_mload_AB = decode_if.data.m_instr_id == `MLOAD_ID && decode_if.valid && (decode_if.data.m_type == `MATRIX_A || decode_if.data.m_type == `MATRIX_B);
+    assign is_mload_C = decode_if.data.m_instr_id == `MLOAD_ID && decode_if.valid && decode_if.data.m_type == `MATRIX_C;
+    assign is_mmul = decode_if.data.m_instr_id == `MMUL_ID && decode_if.valid;
 
 
     for (genvar i = 0; i < `ISSUE_WIDTH; ++i) begin
@@ -89,14 +90,25 @@ module VX_ibuffer import VX_gpu_pkg::*; #(
             assign decode_micro_if[i].data.op_mod = is_mmul ? (m_instr_count_q[i] < decode_if.data.m_row_size ? 3'b010 : 3'b000) : decode_if.data.op_mod;
 
 
-            assign readies[i] = ((is_mmul || ~is_mload) &&  m_instr_count_q[i] == (decode_micro_if[i].data.m_row_size))
-                                || ((~is_mmul || is_mload) && m_instr_count_q[i] == (decode_micro_if[i].data.m_row_size - 1)) 
-                                || (state_q[i] == ISSUE_NORMAL && (decode_if.data.m_instr_id == '0 || decode_if.data.m_instr_id == `MSTORE_ID || decode_if.data.m_instr_id == `MADD_ID));
+            assign readies[i] = ((is_mmul || ~is_mload_AB) &&  m_instr_count_q[i] == (decode_micro_if[i].data.m_row_size))
+                                || ((~is_mmul || is_mload_AB) && m_instr_count_q[i] == (decode_micro_if[i].data.m_row_size - 1)) 
+                                || (state_q[i] == ISSUE_NORMAL && (decode_if.data.m_instr_id == '0 || is_mload_C  || decode_if.data.m_instr_id == `MSTORE_ID || decode_if.data.m_instr_id == `MADD_ID));
 
             if (is_mmul) begin
-                assign decode_micro_if[i].data.rd =  m_instr_count_q[i] < decode_if.data.m_row_size ? decode_if.data.rd + `NR_BITS'(m_instr_count_q[i]): decode_if.data.rd;
-                assign decode_micro_if[i].data.rs1 = m_instr_count_q[i] < decode_if.data.m_row_size ? decode_if.data.rs1 + `NR_BITS'(m_instr_count_q[i]) : decode_if.data.rd;
-                assign decode_micro_if[i].data.rs2 = m_instr_count_q[i] < decode_if.data.m_row_size ? decode_if.data.rs1 + `NR_BITS'(m_instr_count_q[i]) + `NR_BITS'(decode_if.data.m_row_size) : decode_if.data.rd + 1'b1;
+                if (m_instr_count_q[i] == 0) begin
+                    assign decode_micro_if[i].data.rd = decode_if.data.rs1;
+                    assign decode_micro_if[i].data.rs1 = decode_if.data.rs1;
+                    assign decode_micro_if[i].data.rs2 = decode_if.data.rs2;
+                end
+                else if (m_instr_count_q[i] == 1) begin
+                    assign decode_micro_if[i].data.rd = decode_if.data.rs2;
+                    assign decode_micro_if[i].data.rs1 = decode_if.data.rs1 + 1;
+                    assign decode_micro_if[i].data.rs2 = decode_if.data.rs2 + 1;
+                end else begin
+                    assign decode_micro_if[i].data.rd = decode_if.data.rd;
+                    assign decode_micro_if[i].data.rs1 = decode_if.data.rs1;
+                    assign decode_micro_if[i].data.rs2 = decode_if.data.rs2;
+                end
             end else begin
                 assign decode_micro_if[i].data.rd = decode_if.data.rd + (`NR_BITS)'(m_instr_count_q[i]);
                 assign decode_micro_if[i].data.rs1 = decode_if.data.rs1;
@@ -171,7 +183,7 @@ module VX_ibuffer import VX_gpu_pkg::*; #(
         assign m_instr_count_n[i] = m_instr_count_q[i];
             case (state_q[i])
                 ISSUE_NORMAL: begin
-                    if (is_mload && (&ibuf_ready_in)) begin
+                    if (is_mload_AB && (&ibuf_ready_in)) begin
                         state_n[i] = ISSUE_MLOAD;
                         m_instr_count_n[i] = m_instr_count_q[i] + 1'b1;
                     end

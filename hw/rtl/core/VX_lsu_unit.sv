@@ -89,10 +89,10 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
     // For mload, destination registers are 4 and are contiguous in the register file.
     wire [`NR_BITS-1:0] mem_req_rd;
 
-    wire is_mstore;
+    wire is_mstore, is_mload_AB, is_mload_C;
     assign is_mstore = execute_if[0].data.m_instr_id == `MSTORE_ID;
-    wire is_mload;
-    assign is_mload = execute_if[0].data.m_instr_id == `MLOAD_ID;
+    assign is_mload_AB = execute_if[0].data.m_instr_id == `MLOAD_ID && (execute_if[0].data.m_type == `MATRIX_A || execute_if[0].data.m_type == `MATRIX_B);
+    assign is_mload_C = execute_if[0].data.m_instr_id == `MLOAD_ID && (execute_if[0].data.m_type == `MATRIX_C);
 
 
     // Full address calculation
@@ -100,7 +100,7 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
     for (genvar i = 0; i < NUM_LANES; ++i) begin
         wire [`NGT_BITS-1:0] gtid =  (`NGT_BITS)'(i) + ((`NGT_BITS)'(execute_if[0].data.wid) << `NT_BITS );
         always @(*) begin
-            if (is_mload) begin
+            if (is_mload_AB) begin
                 if (execute_if[0].data.m_type == 0) begin
                     if (gtid < (`NGT_BITS)'(execute_if[0].data.m_row_size)) begin
                         full_addr[i] = execute_if[0].data.rs1_data[i] + execute_if[0].data.imm * execute_if[0].data.m_instr_cnt;
@@ -114,7 +114,7 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
                         full_addr[i] = execute_if[0].data.rs1_data[i] + execute_if[0].data.m_instr_cnt * execute_if[0].data.m_row_size * (`XLEN >> 3) + execute_if[0].data.imm;
                     end
                 end
-            end else if (is_mstore) begin 
+            end else if (is_mstore || is_mload_C) begin 
                 full_addr[i] =  execute_if[0].data.rs1_data[i] + execute_if[0].data.imm * gtid;
             end else begin
                 full_addr[i] =  execute_if[0].data.rs1_data[i] + execute_if[0].data.imm;
@@ -133,7 +133,7 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
         for (genvar i = 0; i < (NUM_LANES-1); ++i) begin
             assign addr_matches[i] = ((execute_if[0].data.rs1_data[i+1] == execute_if[0].data.rs1_data[0]) || ~execute_if[0].data.tmask[i+1]);
         end
-        assign lsu_is_dup = execute_if[0].data.tmask[0] && (& addr_matches) && ~is_mload && ~is_mstore;
+        assign lsu_is_dup = execute_if[0].data.tmask[0] && (& addr_matches) && ~is_mload_AB && ~is_mload_C && ~is_mstore;
     end else begin
         assign lsu_is_dup = 0;
     end
@@ -336,7 +336,7 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
         execute_if[0].data.uuid, lsu_addr_type, execute_if[0].data.wid, execute_if[0].data.tmask, execute_if[0].data.PC,
         mem_req_rd , execute_if[0].data.op_type, req_align, execute_if[0].data.pid, pkt_waddr, 
         ((execute_if[0].data.m_instr_cnt == (execute_if[0].data.m_row_size - 1) ) &&
-        (execute_if[0].data.m_instr_id == `MLOAD_ID)) || (execute_if[0].data.m_instr_id == '0) 
+        is_mload_AB) || is_mload_C || (execute_if[0].data.m_instr_id == '0) 
     `ifdef LSU_DUP_ENABLE
         , lsu_is_dup
     `endif

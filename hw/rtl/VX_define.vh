@@ -36,11 +36,19 @@
 
 `define NUM_IREGS       32
 
+// TENSOR
+
+`define M_TYPE_BITS    	2
 `define M_INSTR_BITS    3
+
 `define MLOAD_ID    	`M_INSTR_BITS'(1)
 `define MSTORE_ID    	`M_INSTR_BITS'(2)
 `define MMUL_ID    	`M_INSTR_BITS'(3)
 `define MADD_ID    	`M_INSTR_BITS'(4)
+
+`define MATRIX_A    	`M_TYPE_BITS'(0)
+`define MATRIX_B    	`M_TYPE_BITS'(1)
+`define MATRIX_C    	`M_TYPE_BITS'(2)
 
 `define NRI_BITS        `CLOG2(`NUM_IREGS)
 

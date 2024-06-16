@@ -1,5 +1,6 @@
 # Executables
 ## Ignore all
+*.orig
 *
 ## Unignore all with extensions
 !*.*

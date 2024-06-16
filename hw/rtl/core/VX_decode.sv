@@ -42,7 +42,7 @@ module VX_decode  #(
     VX_decode_sched_if.master decode_sched_if
 );
 
-    localparam DATAW = `UUID_WIDTH + `NW_WIDTH + `NUM_THREADS + `XLEN + `EX_BITS + `INST_OP_BITS + `INST_MOD_BITS + (`NR_BITS * 4) + `XLEN + 1 + 1 + 1 + 1 + `M_INSTR_BITS + 4;
+    localparam DATAW = `UUID_WIDTH + `NW_WIDTH + `NUM_THREADS + `XLEN + `EX_BITS + `INST_OP_BITS + `INST_MOD_BITS + (`NR_BITS * 4) + `XLEN + 1 + 1 + 1 + `M_TYPE_BITS + `M_INSTR_BITS + 4;
 
     `UNUSED_PARAM (CORE_ID)
     `UNUSED_VAR (clk)
@@ -55,8 +55,8 @@ module VX_decode  #(
     reg [`XLEN-1:0] imm;
 
     reg [`M_INSTR_BITS-1:0] m_instr_id;
+    reg [`M_TYPE_BITS-1:0] m_shape;
     reg [3:0] m_row_size;
-    reg m_instr_type;
 
     reg use_rd, use_rs1, use_rs2, use_rs3, use_PC, use_imm;
     reg is_wstall;
@@ -169,7 +169,7 @@ module VX_decode  #(
 
         m_instr_id = '0;
         m_row_size = '0;
-        m_instr_type = '0;
+        m_shape = '0;
 
         case (opcode)
             `INST_I: begin
@@ -521,52 +521,41 @@ module VX_decode  #(
                         ex_type = `EX_LSU;
                         m_instr_id = `MLOAD_ID;
                         m_row_size = 2;
-                        m_instr_type = 0;
+                        m_shape = `MATRIX_A;
                         use_rd  = 1;
                         use_imm = 1;
                         imm     = {{(`XLEN-12){i_imm[11]}}, i_imm};
                         `USED_IREG (rd);
                         `USED_IREG (rs1);
                     end
+
                     3'h1: begin
                         op_type = `INST_OP_BITS'(`INST_LSU_MLOAD);
                         ex_type = `EX_LSU;
                         m_instr_id = `MLOAD_ID;
-                        m_instr_type = 1;
                         m_row_size = 2;
+                        m_shape = `MATRIX_B;
                         use_rd  = 1;
                         use_imm = 1;
                         imm     = {{(`XLEN-12){i_imm[11]}}, i_imm};
                         `USED_IREG (rd);
                         `USED_IREG (rs1);
                     end
+
                     3'h2: begin
                         op_type = `INST_OP_BITS'(`INST_LSU_MLOAD);
                         ex_type = `EX_LSU;
                         m_instr_id = `MLOAD_ID;
-                        m_instr_type = 0;
-                        m_row_size = 4;
+                        m_shape = `MATRIX_C;
                         use_rd  = 1;
                         use_imm = 1;
                         imm     = {{(`XLEN-12){i_imm[11]}}, i_imm};
                         `USED_IREG (rd);
                         `USED_IREG (rs1);
                     end
-                    3'h3: begin
-                        op_type = `INST_OP_BITS'(`INST_LSU_MLOAD);
-                        ex_type = `EX_LSU;
-                        m_instr_id = `MLOAD_ID;
-                        m_instr_type = 1;
-                        m_row_size = 4;
-                        use_rd  = 1;
-                        use_imm = 1;
-                        imm     = {{(`XLEN-12){i_imm[11]}}, i_imm};
-                        `USED_IREG (rd);
-                        `USED_IREG (rs1);
-                    end
-                    // MMUL
 
-                    3'h4: begin
+                    // MMUL
+                    3'h3: begin
                         op_type = `INST_OP_BITS'(`INST_ALU_MMUL);
                         ex_type = `EX_ALU;
                         m_instr_id = `MMUL_ID;
@@ -575,19 +564,19 @@ module VX_decode  #(
                         `USED_IREG (rs2);
                         `USED_IREG (rd);
                     end
-
-                    3'h5: begin
-                        op_type = `INST_OP_BITS'(`INST_ALU_MMUL);
+                    // MADD
+                    3'h4: begin
+                        op_type = `INST_OP_BITS'(`INST_ALU_MADD);
                         ex_type = `EX_ALU;
-                        m_instr_id = `MMUL_ID;
-                        m_row_size = 4;
+                        m_instr_id = `MADD_ID;
+                        op_mod = '0;
                         `USED_IREG (rs1);
                         `USED_IREG (rs2);
                         `USED_IREG (rd);
                     end
 
                     // MSTORE
-                    3'h6: begin
+                    3'h5: begin
                         op_type = `INST_OP_BITS'(`INST_LSU_MSTORE);
                         ex_type = `EX_LSU;
                         m_instr_id = `MSTORE_ID;
@@ -602,16 +591,6 @@ module VX_decode  #(
                         `USED_IREG (rs2);
                     end
 
-                    // MADD
-                    3'h7: begin
-                        op_type = `INST_OP_BITS'(`INST_ALU_MADD);
-                        ex_type = `EX_ALU;
-                        m_instr_id = `MADD_ID;
-                        op_mod = '0;
-                        `USED_IREG (rs1);
-                        `USED_IREG (rs2);
-                        `USED_IREG (rd);
-                    end
                     default:;
                 endcase
             end
@@ -630,7 +609,7 @@ module VX_decode  #(
         .reset     (reset),
         .valid_in  (fetch_if.valid),
         .ready_in  (fetch_if.ready),
-        .data_in   ({fetch_if.data.uuid, fetch_if.data.wid, fetch_if.data.tmask, fetch_if.data.PC, ex_type, op_type, op_mod, use_PC, imm, use_imm, wb, rd_r, rs1_r, rs2_r, rs3_r, m_instr_id, m_row_size, m_instr_type}),
+        .data_in   ({fetch_if.data.uuid, fetch_if.data.wid, fetch_if.data.tmask, fetch_if.data.PC, ex_type, op_type, op_mod, use_PC, imm, use_imm, wb, rd_r, rs1_r, rs2_r, rs3_r, m_instr_id, m_row_size, m_shape}),
         .data_out  ({decode_if.data.uuid, decode_if.data.wid, decode_if.data.tmask, decode_if.data.PC, decode_if.data.ex_type, decode_if.data.op_type, decode_if.data.op_mod, decode_if.data.use_PC, decode_if.data.imm, decode_if.data.use_imm, decode_if.data.wb, decode_if.data.rd, decode_if.data.rs1, decode_if.data.rs2, decode_if.data.rs3, decode_if.data.m_instr_id, decode_if.data.m_row_size, decode_if.data.m_type}),
         .valid_out (decode_if.valid),
         .ready_out (decode_if.ready)

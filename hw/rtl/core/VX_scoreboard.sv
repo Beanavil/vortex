@@ -30,7 +30,7 @@ module VX_scoreboard import VX_gpu_pkg::*; #(
     VX_ibuffer_if.master    scoreboard_if [`ISSUE_WIDTH]
 );
     `UNUSED_PARAM (CORE_ID)
-    localparam DATAW = `UUID_WIDTH + ISSUE_WIS_W + `NUM_THREADS + `XLEN + `EX_BITS + `INST_OP_BITS + `INST_MOD_BITS + 1 + 1 + `XLEN + (`NR_BITS * 4) + 1 + `M_INSTR_BITS + 4 + 1 + 4;
+    localparam DATAW = `UUID_WIDTH + ISSUE_WIS_W + `NUM_THREADS + `XLEN + `EX_BITS + `INST_OP_BITS + `INST_MOD_BITS + 1 + 1 + `XLEN + (`NR_BITS * 4) + `M_TYPE_BITS + `M_INSTR_BITS + 4 + 1 + 4;
 
 `ifdef PERF_ENABLE
     reg [`ISSUE_WIDTH-1:0][`NUM_EX_UNITS-1:0] perf_issue_units_per_cycle;
@@ -103,12 +103,6 @@ module VX_scoreboard import VX_gpu_pkg::*; #(
         wire inuse_rd  = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rd];
         wire inuse_rs1 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs1];
         wire inuse_rs2 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2];
-
-        // wire is_mstore = ibuffer_if[i].data.m_instr_id == `MSTORE_ID;
-        // wire inuse_rs2a = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 1] & is_mstore;
-        // wire inuse_rs2b = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 2] & is_mstore;
-        // wire inuse_rs2c = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs2 + 3] & is_mstore;
-
         wire inuse_rs3 = inuse_regs[ibuffer_if[i].data.wis][ibuffer_if[i].data.rs3];
 
     `ifdef PERF_ENABLE
