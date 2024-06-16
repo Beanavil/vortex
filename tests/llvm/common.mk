@@ -26,7 +26,7 @@ VORTEX_KN_PATH ?= $(realpath ../../../kernel)
 FPGA_BIN_DIR ?= $(VORTEX_RT_PATH)/opae
 
 # LLVM
-LLVM_VORTEX ?= $(TOOLDIR)/llvm-vortex
+LLVM_VORTEX ?= $(TOOLDIR)/vortex-llvm
 
 LLVM_CFLAGS += --sysroot=$(RISCV_SYSROOT)
 LLVM_CFLAGS += --gcc-toolchain=$(RISCV_TOOLCHAIN_PATH)
@@ -35,10 +35,10 @@ LLVM_CFLAGS += -Xclang -target-feature -Xclang +vortex
 # Vortex-LLVM
 VX_CC  = $(LLVM_VORTEX)/bin/clang $(LLVM_CFLAGS)
 VX_CXX = $(LLVM_VORTEX)/bin/clang++ $(LLVM_CFLAGS)
-VX_DP  = $(TOOLDIR)/vortex-llvm/bin/llvm-objdump
-VX_CP  = $(TOOLDIR)/vortex-llvm/bin/llvm-objcopy
-VX_OPT = $(TOOLDIR)/vortex-llvm/bin/opt
-VX_LLC = $(TOOLDIR)/vortex-llvm/bin/llc
+VX_DP  = $(LLVM_VORTEX)/bin/llvm-objdump
+VX_CP  = $(LLVM_VORTEX)/bin/llvm-objcopy
+VX_OPT = $(LLVM_VORTEX)/bin/opt
+VX_LLC = $(LLVM_VORTEX)/bin/llc
 
 VX_CFLAGS += -v -O3 -std=c++17
 VX_CFLAGS += -mcmodel=medany -fno-rtti -fno-exceptions -nostartfiles -fdata-sections -ffunction-sections

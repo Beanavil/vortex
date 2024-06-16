@@ -12,7 +12,7 @@ endif
 RISCV_PREFIX ?= riscv$(XLEN)-unknown-elf
 RISCV_SYSROOT ?= $(RISCV_TOOLCHAIN_PATH)/$(RISCV_PREFIX)
 
-LLVM_VORTEX ?= $(TOOLDIR)/llvm-vortex
+LLVM_VORTEX ?= $(TOOLDIR)/vortex-llvm
 
 LLVM_CFLAGS += --sysroot=$(RISCV_SYSROOT)
 LLVM_CFLAGS += --gcc-toolchain=$(RISCV_TOOLCHAIN_PATH)

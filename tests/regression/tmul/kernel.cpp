@@ -22,10 +22,10 @@ void kernel_body(int task_id, kernel_arg_t* __UNIFORM__ arg) {
 	/*// vx_mstore_2x2(C, 4);  */
 	/*// C <- x24[0..threads-1];*/
 	/*asm volatile (".insn s %1, 6, x24, %2(%0)" :: "r"(C), "i"(0x5b),"i"(4));*/
-	vx_mload_a_2m2n2k_u32(A, 4);
-	vx_mload_b_2m2n2k_u32(B, 4);
-	vx_mmul_2m2n2k_u32();
-	vx_mstore_c_2m2n2k_u32 (C, 4);
+	int resA = vx_mload_a_2m2n2k_u32(A, 4);
+	int resB = vx_mload_b_2m2n2k_u32(B, 4);
+	int resC = vx_mmul_2m2n2k_u32(resA, resB);
+	vx_mstore_c_2m2n2k_u32(C, resC, 4);
 }
 
 int main() {
