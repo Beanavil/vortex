@@ -35,6 +35,7 @@ module VX_ibuffer import VX_gpu_pkg::*; #(
 
     wire [ISW_WIDTH-1:0] decode_isw = wid_to_isw(decode_if.data.wid);
     wire [ISSUE_WIS_W-1:0] decode_wis = wid_to_wis(decode_if.data.wid);
+
     assign decode_if.ready = ibuf_ready_in[decode_isw] && (&readies);
 
 
@@ -61,6 +62,9 @@ module VX_ibuffer import VX_gpu_pkg::*; #(
                 {`INST_LSU_MSTORE, 2'h`EX_LSU}: begin
                     assign decode_micro_if[i].data.op_type = `INST_LSU_SW;
                 end
+                {`INST_ALU_MADD, 2'h`EX_ALU}: begin
+                    assign decode_micro_if[i].data.op_type = `INST_ALU_MADD;
+                end
                 default: begin
                     assign decode_micro_if[i].data.op_type = decode_if.data.op_type;
                 end
@@ -82,12 +86,12 @@ module VX_ibuffer import VX_gpu_pkg::*; #(
             assign decode_micro_if[i].data.m_row_size = decode_if.data.m_row_size;
             assign decode_micro_if[i].data.m_type = decode_if.data.m_type;
 
-            assign decode_micro_if[i].data.op_mod = m_instr_count_q[i] < decode_if.data.m_row_size ? 3'b010 : 3'b000;
+            assign decode_micro_if[i].data.op_mod = is_mmul ? (m_instr_count_q[i] < decode_if.data.m_row_size ? 3'b010 : 3'b000) : decode_if.data.op_mod;
 
 
             assign readies[i] = ((is_mmul || ~is_mload) &&  m_instr_count_q[i] == (decode_micro_if[i].data.m_row_size))
                                 || ((~is_mmul || is_mload) && m_instr_count_q[i] == (decode_micro_if[i].data.m_row_size - 1)) 
-                                || (state_q[i] == ISSUE_NORMAL && (decode_if.data.m_instr_id == '0 || decode_if.data.m_instr_id == `MSTORE_ID));
+                                || (state_q[i] == ISSUE_NORMAL && (decode_if.data.m_instr_id == '0 || decode_if.data.m_instr_id == `MSTORE_ID || decode_if.data.m_instr_id == `MADD_ID));
 
             if (is_mmul) begin
                 assign decode_micro_if[i].data.rd =  m_instr_count_q[i] < decode_if.data.m_row_size ? decode_if.data.rd + `NR_BITS'(m_instr_count_q[i]): decode_if.data.rd;
@@ -153,7 +157,6 @@ module VX_ibuffer import VX_gpu_pkg::*; #(
                     decode_if.data.m_type,
                     decode_if.data.m_row_size
                 }
-
                 ),
             .data_out(ibuffer_if[i].data),
             .valid_out (ibuffer_if[i].valid),
