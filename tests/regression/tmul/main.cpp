@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
   RT_CHECK(vx_mem_alloc(device, buf_size, VX_MEM_TYPE_GLOBAL, &kernel_arg.B_addr));
   RT_CHECK(vx_mem_alloc(device, buf_size, VX_MEM_TYPE_GLOBAL, &kernel_arg.C_addr));
 
-  kernel_arg.num_tasks = num_points;
+  kernel_arg.num_tasks = 1; //TODO
   kernel_arg.size = size;
 
   std::cout << "dev_src0=0x" << std::hex << kernel_arg.A_addr << std::endl;
@@ -174,10 +174,52 @@ int main(int argc, char *argv[]) {
   std::vector<TYPE> src_C(num_points);
 
   std::vector<TYPE> refs(num_points);
-  for (uint32_t i = 0; i < num_points; ++i) {
-      src_A[i] = i;
-      src_B[i] = i + 20;
+  // for (uint32_t i = 0; i < num_points; ++i) { 
+  //     src_A[i] = i;
+  //     src_B[i] = i + 20;
+  // }
+
+  // Intrisic adapted matrix order
+  for (uint32_t i = 0; i < size/2; ++i) {    
+      for (uint32_t k = 0; k< size/2; ++k)
+        for (uint32_t j = 0; j < 4; j ++)  {
+          src_A[i*size*2 + k*4 + j] = j;
+          src_B[i*size*2 + k*4 + j] = j;
+        }
   }
+
+  //Print 
+  for (uint32_t i = 0; i < size/2; ++i) {
+    for (uint32_t j = 0; j < size*2; ++j) {
+      std::cout << src_B[i* size*2 + j] << " ";  
+    }
+    std::cout << std::endl; 
+  }
+
+  // Standard matrix order
+  // short aux1 = 0, aux2 = 0; 
+  // for (uint32_t i = 0; i < size; ++i) {    
+  //   if(i%2 == 0){
+  //     aux1 = 0; 
+  //     aux2 = 1; 
+  //   }else{
+  //     aux1 = 2; 
+  //     aux2 = 3; 
+  //   }
+  //   for (uint32_t j = 0; j < size; j+=2) {
+  //       src_B[i*size + j] = aux1;
+  //       src_B[i*size + j + 1] = aux2;
+  //   }  
+  // }
+
+  // print matrix
+  // for (uint32_t i = 0; i < size; ++i) {
+  //   for (uint32_t j = 0; j < size; ++j) {
+  //     std::cout << src_B[i* size + j] << " ";  
+  //   }
+  //   std::cout << std::endl; 
+  // }
+  
 
   matmul_cpu(refs.data(), src_A.data(), src_B.data(), size, size);
 
