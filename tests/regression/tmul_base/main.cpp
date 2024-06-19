@@ -242,24 +242,24 @@ int main(int argc, char *argv[]) {
   
   
   // verify result
-  std::cout << "verify result" << std::endl;  
-  {
-    int errors = 0, aux = 0;
-    auto buf_ptr = (TYPE*)staging_buf.data();
-    for (uint32_t j = 0; j < size; ++j) {
-      for (uint32_t i = 0; i < size; ++i) {
-        std::cout << buf_ptr[aux] << " ";
-        aux ++;
-      }
-      std::cout << "\n";
-    }
-    // for (uint32_t i = 0; i < refs.size(); ++i) {
-      // auto ref = refs[i];
-      // auto cur = buf_ptr[i];
-      // if (!Comparator<TYPE>::compare(ref, cur, i, errors)) {
-      //   ++errors;
-      // }
-  }
+  // std::cout << "verify result" << std::endl;  
+  // {
+  //   int errors = 0, aux = 0;
+  //   auto buf_ptr = (TYPE*)staging_buf.data();
+  //   for (uint32_t j = 0; j < size; ++j) {
+  //     for (uint32_t i = 0; i < size; ++i) {
+  //       std::cout << buf_ptr[aux] << " ";
+  //       aux ++;
+  //     }
+  //     std::cout << "\n";
+  //   }
+  //   // for (uint32_t i = 0; i < refs.size(); ++i) {
+  //     // auto ref = refs[i];
+  //     // auto cur = buf_ptr[i];
+  //     // if (!Comparator<TYPE>::compare(ref, cur, i, errors)) {
+  //     //   ++errors;
+  //     // }
+  // }
   
     // if (errors != 0) {
     //   std::cout << "Found " << std::dec << errors << " errors!" << std::endl;

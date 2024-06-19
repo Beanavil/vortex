@@ -156,49 +156,6 @@ inline void vx_barrier(unsigned barried_id, unsigned num_warps) {
 // NOTE: check `info -f riscv64-gnu-toolchain/share/info/as.info | less`
 // search for `RISC-V Instruction Formats`
 
-// TODO erase 
-// inline void vx_mload_a_2x2_x24(int* addr, unsigned int stride) {
-
-//     //  +--------------+-----+-------+----+---------+
-//     //  | simm12[11:0] | rs1 | func3 | rd | opcode6 |
-//     //  +--------------+-----+-------+----+---------+
-//     //  31             20    15      12   7         0
-
-//     // 'I type: .insn i opcode6, func3, rd, simm12(rs1)'
-//     asm volatile (".insn i %0, 0, x24, %2(%1)" :: "i"(RISCV_CUSTOM2), "r"(addr), "i"(stride));
-// }
-// inline void vx_mload_b_2x2_x24(int* addr, int stride) {
-
-//     //  +--------------+-----+-------+----+---------+
-//     //  | simm12[11:0] | rs1 | func3 | rd | opcode6 |
-//     //  +--------------+-----+-------+----+---------+
-//     //  31             20    15      12   7         0
-
-//     // 'I type: .insn i opcode6, func3, rd, simm12(rs1)'
-//     asm volatile (".insn i %0, 1, x26, %2(%1)" :: "i"(RISCV_CUSTOM2), "r"(addr), "i"(stride));
-// }
-// inline void vx_mmul_2x2_x24() {
-
-//     //    +-------+-----+-----+-------+----+---------+
-//     //    | func7 | rs2 | rs1 | func3 | rd | opcode6 |
-//     //    +-------+-----+-----+-------+----+---------+
-//     //    31      25    20    15      12   7        0
-
-//     //'R type: .insn r opcode6, func3, func7, rd, rs1, rs2'
-//     asm volatile (".insn r %0, 4, 0, x24, x24, zero" :: "i"(RISCV_CUSTOM2));
-// }
-// inline void vx_mstore_2x2_x24(int* output, unsigned int stride) {
-
-//     //  +--------------+-----+-----+-------+-------------+---------+
-//     //  | simm12[11:5] | rs2 | rs1 | func3 | simm12[4:0] | opcode6 |
-//     //  +--------------+-----+-----+-------+-------------+---------+
-//     //  31             25    20    15      12            7         0
-
-//     //  S type: .insn s opcode6, func3, rs2, simm12(rs1)
-//     asm volatile (".insn s %1, 6, x24, %2(%0)" :: "r"(output), "i"(RISCV_CUSTOM2),"i"(stride));
-// }
-
-
 // Special matrix operations
 // Matrices load
 inline int vx_mload_a_2m2n2k(int* addr, unsigned int stride) {

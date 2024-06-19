@@ -9,23 +9,23 @@ void kernel_body(int task_id, kernel_arg_t* __UNIFORM__ arg) {
 	TYPE* B = reinterpret_cast<TYPE*>(arg->B_addr); //TODO
 	TYPE* C = reinterpret_cast<TYPE*>(arg->C_addr);
 	TYPE* aux = reinterpret_cast<TYPE*>(arg->aux_addr);
-	int resac;
+	int resac, threadID = vx_thread_id();
 	uint32_t size = arg->size;
 	uint32_t j = 0, i = 0, k = 0;	
 
-	if(vx_thread_id() < 0){
-		vx_printf("[DEVIC]: wid=%d tid=%d tmask=%tid\n", vx_warp_id(),vx_thread_id(), vx_thread_mask());
+	if(threadID < 0){
+		vx_printf("[DEVIC]: wid=%d tid=%d tmask=%tid\n", vx_warp_id(),threadID, vx_thread_mask());
 	}
 	
 	for(i = 0; i < size; i++){
 		for(j = 0; j < size; j++){
 			resac = 0;
 			for(k = 0; k < size; k+=4){
-				resac += A[i*size + k+vx_thread_id()] * B[(k+vx_thread_id())*size + j];
+				resac += A[i*size + k+threadID] * B[(k+threadID)*size + j];
 			}
-			aux[vx_thread_id()] = resac; 
+			aux[threadID] = resac; 
 			vx_fence();
-			if(vx_thread_id() == 0){
+			if(threadID == 0){
 				C[i*size + j] = aux[0] + aux[1] + aux[2] + aux[3];
 			}
 		}
