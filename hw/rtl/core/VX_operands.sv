@@ -25,7 +25,7 @@ module VX_operands import VX_gpu_pkg::*; #(
     VX_operands_if.master   operands_if [`ISSUE_WIDTH]
 );
     `UNUSED_PARAM (CORE_ID)
-    localparam DATAW = `UUID_WIDTH + ISSUE_WIS_W + `NUM_THREADS + `XLEN + `EX_BITS + `INST_OP_BITS + `INST_MOD_BITS + 1 + 1 + 1 + `XLEN + `NR_BITS + 1;
+    localparam DATAW = `UUID_WIDTH + ISSUE_WIS_W + `NUM_THREADS + `XLEN + `EX_BITS + `INST_OP_BITS + `INST_MOD_BITS + 1 + 1 + 1 + `XLEN + `NR_BITS + `M_INSTR_BITS + 4 + `M_TYPE_BITS + 4;
     localparam RAM_ADDRW = `LOG2UP(`NUM_REGS * ISSUE_RATIO);
 
     localparam STATE_IDLE   = 2'd0;
@@ -216,7 +216,10 @@ module VX_operands import VX_gpu_pkg::*; #(
                 scoreboard_if[i].data.use_imm,
                 scoreboard_if[i].data.imm,
                 scoreboard_if[i].data.rd,
-                scoreboard_if[i].data.is_mstore
+                scoreboard_if[i].data.m_instr_cnt,
+                scoreboard_if[i].data.m_instr_id,
+                scoreboard_if[i].data.m_row_size,
+                scoreboard_if[i].data.m_type
             }),
             .ready_in  (stg_ready_in),
             .valid_out (operands_if[i].valid),
@@ -233,7 +236,10 @@ module VX_operands import VX_gpu_pkg::*; #(
                 operands_if[i].data.use_imm,
                 operands_if[i].data.imm,
                 operands_if[i].data.rd,
-                operands_if[i].data.is_mstore
+                operands_if[i].data.m_instr_cnt,
+                operands_if[i].data.m_instr_id,
+                operands_if[i].data.m_row_size,
+                operands_if[i].data.m_type
             }),
             .ready_out (operands_if[i].ready)
         );

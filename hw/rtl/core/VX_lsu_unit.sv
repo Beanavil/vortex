@@ -80,51 +80,49 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
 `endif
 
     // tag = uuid + addr_type + wid + PC + tmask + rd + op_type + align + is_dup + pid + pkt_addr
-    localparam TAG_WIDTH = `UUID_WIDTH + (NUM_LANES * `CACHE_ADDR_TYPE_BITS) + `NW_WIDTH + `XLEN + NUM_LANES + `NR_BITS + `INST_LSU_BITS + (NUM_LANES * (REQ_ASHIFT)) + `LSU_DUP_ENABLED + PID_WIDTH + LSUQ_SIZEW + 1 + 1;
+    localparam TAG_WIDTH = `UUID_WIDTH + (NUM_LANES * `CACHE_ADDR_TYPE_BITS) + `NW_WIDTH + `XLEN + NUM_LANES + `NR_BITS + `INST_LSU_BITS + (NUM_LANES * (REQ_ASHIFT)) + `LSU_DUP_ENABLED + PID_WIDTH + LSUQ_SIZEW + 1;
 
     `STATIC_ASSERT(0 == (`IO_BASE_ADDR % `MEM_BLOCK_SIZE), ("invalid parameter"))
 
     wire [NUM_LANES-1:0][`CACHE_ADDR_TYPE_BITS-1:0] lsu_addr_type;
 
-    reg [`NT_BITS:0] mload_count_q, mload_count_n;
-
-
     // For mload, destination registers are 4 and are contiguous in the register file.
     wire [`NR_BITS-1:0] mem_req_rd;
 
-    wire is_mstore;
-    assign is_mstore = execute_if[0].data.is_mstore;
+    wire is_mstore, is_mload_AB, is_mload_C;
+    assign is_mstore = execute_if[0].data.m_instr_id == `MSTORE_ID;
+    assign is_mload_AB = execute_if[0].data.m_instr_id == `MLOAD_ID && (execute_if[0].data.m_type == `MATRIX_A || execute_if[0].data.m_type == `MATRIX_B);
+    assign is_mload_C = execute_if[0].data.m_instr_id == `MLOAD_ID && (execute_if[0].data.m_type == `MATRIX_C);
 
-    wire is_mload;
-    assign is_mload = (execute_if[0].data.op_type == `INST_LSU_MLOAD) && lsu_valid;
 
     // Full address calculation
     wire [NUM_LANES-1:0][`XLEN-1:0] full_addr;
     for (genvar i = 0; i < NUM_LANES; ++i) begin
-        wire [`XLEN-1:0] addr_offset_1;
-        wire [`XLEN-1:0] addr_offset_2;
-
-        // First matrix accesses have offset (tid / 2) * 2
-        assign addr_offset_1 = (`XLEN)'(i) >> 1 << 1;
-        // Second matrix accesses have offset (tid % 2)
-        assign addr_offset_2 = (`XLEN)'(i[0]);
-
+        wire [`NGT_BITS-1:0] gtid =  (`NGT_BITS)'(i) + ((`NGT_BITS)'(execute_if[0].data.wid) << `NT_BITS );
         always @(*) begin
-            if (is_mload) begin
-                if (mload_count_q < 2) begin
-                    full_addr[i] = execute_if[0].data.rs1_data[i] + ((`XLEN/8) * (addr_offset_1 + (`XLEN)'(mload_count_q == 'h1)));
+            if (is_mload_AB) begin
+                if (execute_if[0].data.m_type == 0) begin
+                    if (gtid < (`NGT_BITS)'(execute_if[0].data.m_row_size)) begin
+                        full_addr[i] = execute_if[0].data.rs1_data[i] + execute_if[0].data.imm * execute_if[0].data.m_instr_cnt;
+                    end else begin
+                        full_addr[i] = execute_if[0].data.rs1_data[i] + execute_if[0].data.imm * execute_if[0].data.m_instr_cnt + execute_if[0].data.m_row_size * (`XLEN >> 3);
+                    end
                 end else begin
-                    full_addr[i] = execute_if[0].data.rs2_data[i] + ((`XLEN/8) * (addr_offset_2 + ((`XLEN)'(mload_count_q == 'h3) << 1)));
+                    if (~gtid[0]) begin
+                        full_addr[i] = execute_if[0].data.rs1_data[i] + execute_if[0].data.m_instr_cnt * execute_if[0].data.m_row_size * (`XLEN >> 3);
+                    end else begin
+                        full_addr[i] = execute_if[0].data.rs1_data[i] + execute_if[0].data.m_instr_cnt * execute_if[0].data.m_row_size * (`XLEN >> 3) + execute_if[0].data.imm;
+                    end
                 end
-            end else if (is_mstore) begin 
-                full_addr[i] =  execute_if[0].data.rs1_data[i] + ((`XLEN/8) * i);
+            end else if (is_mstore || is_mload_C) begin 
+                full_addr[i] =  execute_if[0].data.rs1_data[i] + execute_if[0].data.imm * gtid;
             end else begin
                 full_addr[i] =  execute_if[0].data.rs1_data[i] + execute_if[0].data.imm;
             end
         end
     end
 
-    assign mem_req_rd = execute_if[0].data.rd + ((`NR_BITS)'(mload_count_q) & {(`NR_BITS){state_q == LSU_MLOAD}});
+    assign mem_req_rd = execute_if[0].data.rd;
 
     // detect duplicate addresses
 
@@ -135,7 +133,7 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
         for (genvar i = 0; i < (NUM_LANES-1); ++i) begin
             assign addr_matches[i] = ((execute_if[0].data.rs1_data[i+1] == execute_if[0].data.rs1_data[0]) || ~execute_if[0].data.tmask[i+1]);
         end
-        assign lsu_is_dup = execute_if[0].data.tmask[0] && (& addr_matches) && ~is_mload && ~is_mstore;
+        assign lsu_is_dup = execute_if[0].data.tmask[0] && (& addr_matches) && ~is_mload_AB && ~is_mload_C && ~is_mstore;
     end else begin
         assign lsu_is_dup = 0;
     end
@@ -169,8 +167,7 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
     assign lsu_valid = execute_if[0].valid && ~fence_wait;
     assign lsu_ready = mem_req_ready && (~mem_req_rw || st_rsp_ready);
 
-    assign execute_if[0].ready = (lsu_ready && ~fence_wait && state_q == LSU_NORMAL && ~is_mload) 
-                                || (lsu_ready && ~fence_wait && state_q == LSU_MLOAD && mload_count_q == 'h3);
+    assign execute_if[0].ready = lsu_ready && ~fence_wait;
 
     // schedule memory request
 
@@ -337,7 +334,9 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
 
     assign mem_req_tag = {
         execute_if[0].data.uuid, lsu_addr_type, execute_if[0].data.wid, execute_if[0].data.tmask, execute_if[0].data.PC,
-        mem_req_rd , execute_if[0].data.op_type, req_align, execute_if[0].data.pid, pkt_waddr, (mload_count_q == 3'h3 && state_q == LSU_MLOAD) || (~is_mload && state_q == LSU_NORMAL), (state_q == LSU_MLOAD) || is_mload || is_mstore
+        mem_req_rd , execute_if[0].data.op_type, req_align, execute_if[0].data.pid, pkt_waddr, 
+        ((execute_if[0].data.m_instr_cnt == (execute_if[0].data.m_row_size - 1) ) &&
+        is_mload_AB) || is_mload_C || (execute_if[0].data.m_instr_id == '0) 
     `ifdef LSU_DUP_ENABLE
         , lsu_is_dup
     `endif
@@ -477,14 +476,13 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
     wire [`INST_LSU_BITS-1:0] rsp_op_type;
     wire [NUM_LANES-1:0][REQ_ASHIFT-1:0] rsp_align;
     wire [PID_WIDTH-1:0] rsp_pid;
-    wire rsp_is_dup;
+    wire rsp_is_dup, rsp_true_eop;
 `ifndef LSU_DUP_ENABLE
     assign rsp_is_dup = 0;
 `endif
 
-    wire rsp_true_eop, rsp_custom_instr;
     assign {
-        rsp_uuid, rsp_addr_type, rsp_wid, rsp_tmask_uq, rsp_pc, rsp_rd, rsp_op_type, rsp_align, rsp_pid, pkt_raddr, rsp_true_eop, rsp_custom_instr
+        rsp_uuid, rsp_addr_type, rsp_wid, rsp_tmask_uq, rsp_pc, rsp_rd, rsp_op_type, rsp_align, rsp_pid, pkt_raddr, rsp_true_eop
     `ifdef LSU_DUP_ENABLE
         , rsp_is_dup
     `endif
@@ -519,28 +517,20 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
 
         always @(*) begin
             rsp_data[i] = 'x;
-            if (rsp_custom_instr) begin
-            `ifdef XLEN_64
-                rsp_data[i] = rsp_is_float ? (`XLEN'(rsp_data32) | 64'hffffffff00000000) : `XLEN'(signed'(rsp_data32));
-            `else
-                rsp_data[i] = `XLEN'(signed'(rsp_data32));
-            `endif
-            end else begin
-                case (`INST_LSU_FMT(rsp_op_type))
-                `INST_FMT_B:  rsp_data[i] = `XLEN'(signed'(rsp_data8));
-                `INST_FMT_H:  rsp_data[i] = `XLEN'(signed'(rsp_data16));
-                `INST_FMT_BU: rsp_data[i] = `XLEN'(unsigned'(rsp_data8));
-                `INST_FMT_HU: rsp_data[i] = `XLEN'(unsigned'(rsp_data16));
-            `ifdef XLEN_64
-                `INST_FMT_W:  rsp_data[i] = rsp_is_float ? (`XLEN'(rsp_data32) | 64'hffffffff00000000) : `XLEN'(signed'(rsp_data32));
-                `INST_FMT_WU: rsp_data[i] = `XLEN'(unsigned'(rsp_data32));
-                `INST_FMT_D:  rsp_data[i] = `XLEN'(signed'(rsp_data64));
-            `else
-                `INST_FMT_W:  rsp_data[i] = `XLEN'(signed'(rsp_data32));
-            `endif
-                default: rsp_data[i] = 'x;
-                endcase
-            end
+            case (`INST_LSU_FMT(rsp_op_type))
+            `INST_FMT_B:  rsp_data[i] = `XLEN'(signed'(rsp_data8));
+            `INST_FMT_H:  rsp_data[i] = `XLEN'(signed'(rsp_data16));
+            `INST_FMT_BU: rsp_data[i] = `XLEN'(unsigned'(rsp_data8));
+            `INST_FMT_HU: rsp_data[i] = `XLEN'(unsigned'(rsp_data16));
+        `ifdef XLEN_64
+            `INST_FMT_W:  rsp_data[i] = rsp_is_float ? (`XLEN'(rsp_data32) | 64'hffffffff00000000) : `XLEN'(signed'(rsp_data32));
+            `INST_FMT_WU: rsp_data[i] = `XLEN'(unsigned'(rsp_data32));
+            `INST_FMT_D:  rsp_data[i] = `XLEN'(signed'(rsp_data64));
+        `else
+            `INST_FMT_W:  rsp_data[i] = `XLEN'(signed'(rsp_data32));
+        `endif
+            default: rsp_data[i] = 'x;
+            endcase
         end
     end
 
@@ -616,49 +606,6 @@ module VX_lsu_unit import VX_gpu_pkg::*; #(
         .commit_in_if  (commit_arb_if),
         .commit_out_if (commit_if)
     );
-
-    reg state_q, state_n;
-
-    localparam LSU_NORMAL = 1'b0;
-    localparam LSU_MLOAD = 1'b1;
-
-    always @(*) begin
-        assign state_n = state_q;
-        assign mload_count_n = mload_count_q;
-
-        case (state_q)
-            LSU_NORMAL: begin
-                if (is_mload) begin
-                    if (lsu_ready) begin
-                        state_n = LSU_MLOAD;
-                        mload_count_n = mload_count_q + 1'b1;
-                    end
-                end
-            end
-            LSU_MLOAD: begin
-                 if (lsu_ready) begin
-                    if (mload_count_q == 'h3) begin
-                        state_n = LSU_NORMAL;
-                        mload_count_n = '0;
-                    end else begin
-                        mload_count_n = mload_count_q + 1'b1;
-                    end
-                end
-            end
-            default:;
-        endcase
-    end
-
-    always @(posedge clk) begin
-        if (reset) begin
-            state_q <= LSU_NORMAL;
-            mload_count_q <= '0;
-        end else begin
-            state_q <= state_n;
-            mload_count_q <= mload_count_n;
-        end
-    end
-
 
 `ifdef DBG_SCOPE_LSU
     if (CORE_ID == 0) begin

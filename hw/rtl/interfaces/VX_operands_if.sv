@@ -31,7 +31,10 @@ interface VX_operands_if import VX_gpu_pkg::*; ();
         logic [`NUM_THREADS-1:0][`XLEN-1:0] rs1_data;
         logic [`NUM_THREADS-1:0][`XLEN-1:0] rs2_data;
         logic [`NUM_THREADS-1:0][`XLEN-1:0] rs3_data;
-        logic                           is_mstore;
+        logic [3:0]                     m_instr_cnt;
+        logic [`M_INSTR_BITS-1:0]       m_instr_id;
+        logic [`M_TYPE_BITS-1:0]        m_type;
+        logic [3:0]                     m_row_size;
     } data_t;
 
     logic  valid;

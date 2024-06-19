@@ -1,8 +1,11 @@
 # Executables
 ## Ignore all
+*.orig
 *
 ## Unignore all with extensions
 !*.*
+## Unignore Makefiles
+!Makefile
 ## Unignore all dirs
 !*/
 # CI
@@ -33,3 +36,5 @@ compile_commands.json
 trace.vcd
 *.log
 *.gtkw
+*.ll
+SdkConsoleLog.txt

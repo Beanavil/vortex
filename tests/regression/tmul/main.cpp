@@ -68,19 +68,6 @@ public:
   }
 };
 
-/*
-static void matmul_cpu(TYPE* out, const TYPE* A, const TYPE* B, uint32_t width, uint32_t height) {
-  for (uint32_t row = 0; row < height; ++row) {
-    for (uint32_t col = 0; col < width; ++col) {
-      TYPE sum(0);
-      for (uint32_t e = 0; e < width; ++e) {
-          sum += A[row * width + e] * B[e * width + col];
-      }
-      out[row * width + col] = sum;
-    }
-  }
-}
-*/
 
 const char* kernel_file = "kernel.bin";
 uint32_t size = 2;
@@ -116,11 +103,29 @@ static void parse_args(int argc, char **argv) {
   }
 }
 
+static void matmacc_cpu(TYPE* out, const TYPE* A, const TYPE* B, const TYPE* C, uint32_t width, uint32_t height) {
+  for (uint32_t row = 0; row < height; ++row) {
+    for (uint32_t col = 0; col < width; ++col) {
+      TYPE sum(0);
+      for (uint32_t e = 0; e < width; ++e) {
+          sum += A[row * width + e] * B[e * width + col];
+      }
+      out[row * width + col] = sum;
+    }
+  }
+  for (uint32_t row = 0; row < height; ++row) {
+    for (uint32_t col = 0; col < width; ++col) {
+      out[row * width + col] += C[row * width + col];
+    }
+  }
+}
+
 void cleanup() {
   if (device) {
     vx_mem_free(device, kernel_arg.A_addr);
     vx_mem_free(device, kernel_arg.B_addr);
     vx_mem_free(device, kernel_arg.C_addr);
+    vx_mem_free(device, kernel_arg.D_addr);
     vx_dev_close(device);
   }
 }
@@ -151,13 +156,15 @@ int main(int argc, char *argv[]) {
   RT_CHECK(vx_mem_alloc(device, buf_size, VX_MEM_TYPE_GLOBAL, &kernel_arg.A_addr));
   RT_CHECK(vx_mem_alloc(device, buf_size, VX_MEM_TYPE_GLOBAL, &kernel_arg.B_addr));
   RT_CHECK(vx_mem_alloc(device, buf_size, VX_MEM_TYPE_GLOBAL, &kernel_arg.C_addr));
+  RT_CHECK(vx_mem_alloc(device, buf_size, VX_MEM_TYPE_GLOBAL, &kernel_arg.D_addr));
 
   kernel_arg.num_tasks = num_points;
   kernel_arg.size = size;
 
   std::cout << "dev_src0=0x" << std::hex << kernel_arg.A_addr << std::endl;
   std::cout << "dev_src1=0x" << std::hex << kernel_arg.B_addr << std::endl;
-  std::cout << "dev_dst=0x" << std::hex << kernel_arg.C_addr << std::endl;
+  std::cout << "dev_src2=0x" << std::hex << kernel_arg.C_addr << std::endl;
+  std::cout << "dev_dst=0x" << std::hex << kernel_arg.D_addr << std::endl;
 
   // allocate staging buffer
   std::cout << "allocate staging buffer" << std::endl;
@@ -173,25 +180,18 @@ int main(int argc, char *argv[]) {
   std::vector<TYPE> src_A(num_points);
   std::vector<TYPE> src_B(num_points);
   std::vector<TYPE> src_C(num_points);
+  std::vector<TYPE> src_D(num_points);
 
   std::vector<TYPE> refs(num_points);
   for (uint32_t i = 0; i < num_points; ++i) {
       src_A[i] = i;
       src_B[i] = i + 20;
+      src_C[i] = i;
   }
-  std::cout << "HOST: A = [";
-  for (uint32_t i = 0; i < num_points; ++i) {
-    std::cout << std::dec << src_A[i] << " ";
-  }
-  std::cout << "]"<< std::endl;
 
-  std::cout << "HOST: B = [";
-  for (uint32_t i = 0; i < num_points; ++i) {
-    std::cout << std::dec << src_B[i] << " ";
-  }
-  std::cout << "]"<< std::endl;
+  matmacc_cpu(refs.data(), src_A.data(), src_B.data(), src_C.data(),  size, size);
 
-  // upload source buffer0
+  // upload source buffer A
   {
     std::cout << "upload source buffer0" << std::endl;
     auto buf_ptr = (TYPE*)staging_buf.data();
@@ -201,7 +201,7 @@ int main(int argc, char *argv[]) {
     RT_CHECK(vx_copy_to_dev(device, kernel_arg.A_addr, staging_buf.data(), buf_size));
   }
 
-  // upload source buffer1
+  // upload source buffer B
   {
     std::cout << "upload source buffer1" << std::endl;
     auto buf_ptr = (TYPE*)staging_buf.data();
@@ -211,11 +211,21 @@ int main(int argc, char *argv[]) {
     RT_CHECK(vx_copy_to_dev(device, kernel_arg.B_addr, staging_buf.data(), buf_size));
   }
 
+  // upload source buffer C
+  {
+    std::cout << "upload source buffer1" << std::endl;
+    auto buf_ptr = (TYPE*)staging_buf.data();
+    for (uint32_t i = 0; i < num_points; ++i) {
+      buf_ptr[i] = src_C[i];
+    }
+    RT_CHECK(vx_copy_to_dev(device, kernel_arg.C_addr, staging_buf.data(), buf_size));
+  }
+
 
   // clear destination buffer
   std::cout << "clear destination buffer" << std::endl;
   memset(staging_buf.data(), 0, num_points * sizeof(TYPE));
-  RT_CHECK(vx_copy_to_dev(device, kernel_arg.C_addr, staging_buf.data(), buf_size));
+  RT_CHECK(vx_copy_to_dev(device, kernel_arg.D_addr, staging_buf.data(), buf_size));
 
   auto time_start = std::chrono::high_resolution_clock::now();
 
@@ -234,14 +244,26 @@ int main(int argc, char *argv[]) {
 
   // download destination buffer
   std::cout << "download destination buffer" << std::endl;
-  RT_CHECK(vx_copy_from_dev(device, staging_buf.data(), kernel_arg.C_addr, buf_size));
+  RT_CHECK(vx_copy_from_dev(device, staging_buf.data(), kernel_arg.D_addr, buf_size));
 
-  auto buf_ptr = (TYPE*)staging_buf.data();
-  std::cout << "HOST: C = [";
-  for (uint32_t i = 0; i < num_points; ++i) {
-    std::cout << buf_ptr[i] << " ";
+  // verify result
+  std::cout << "verify result" << std::endl;  
+  {
+    int errors = 0;
+    auto buf_ptr = (TYPE*)staging_buf.data();
+    for (uint32_t i = 0; i < refs.size(); ++i) {
+      auto ref = refs[i];
+      auto cur = buf_ptr[i];
+      if (!Comparator<TYPE>::compare(ref, cur, i, errors)) {
+        ++errors;
+      }
+    }
+    if (errors != 0) {
+      std::cout << "Found " << std::dec << errors << " errors!" << std::endl;
+      std::cout << "FAILED!" << std::endl;
+      return 1;  
+    }
   }
-  std::cout << "]"<< std::endl;
 
   // cleanup
   std::cout << "cleanup" << std::endl;

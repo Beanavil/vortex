@@ -14,7 +14,7 @@
      if (0 == _ret)                                             \
        break;                                                   \
      printf("Error: '%s' returned %d!\n", #_expr, (int)_ret);   \
-	 cleanup();			                                              \
+	 cleanup();                                             \
      exit(-1);                                                  \
    } while (false)
 
