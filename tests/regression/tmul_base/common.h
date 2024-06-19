@@ -13,6 +13,7 @@ typedef struct {
   uint64_t A_addr;
   uint64_t B_addr;
   uint64_t C_addr;
+  uint64_t aux_addr;
   
 } kernel_arg_t;
 
