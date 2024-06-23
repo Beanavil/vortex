@@ -26,7 +26,7 @@ void kernel_body(int task_id, kernel_arg_t* __UNIFORM__ arg) {
 	}else{
 		innerColumn = threadID==3;
 	}
-	// vx_printf("Th %d - innerColumn=%d, innerRow=%d\n", threadID, innerColumn, innerRow);
+	
 	
 	for(i = 0; i < size; i+=blocksize){
 		for(j = 0; j < size; j+=blocksize){
@@ -47,9 +47,3 @@ int main() {
 	return 0;
 }
 
-
-// vx_printf("Th %d - A1[%d]\n", threadID, ((i + innerRow)*size) + k);
-// vx_printf("Th %d - B1[%d]\n", threadID, (k*size + j + innerColumn));
-// vx_printf("Th %d - A2[%d]\n", threadID, ((i + innerRow)*size) + k + 1);
-// vx_printf("Th %d - B2[%d]\n", threadID, ((k+1)*size + j + innerColumn));
-				

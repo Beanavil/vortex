@@ -4,12 +4,6 @@
 #include "vx_spawn.h"
 #include "common.h"
 
-
-void add(TYPE* A, TYPE* B){
-
-
-}
-
 void kernel_body(int task_id, kernel_arg_t* __UNIFORM__ arg) {
 	TYPE* A = reinterpret_cast<TYPE*>(arg->A_addr);
 	TYPE* B = reinterpret_cast<TYPE*>(arg->B_addr); //TODO
