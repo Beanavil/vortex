@@ -1,0 +1,6 @@
+
+App: tmul_base, Size: 4x4, Cache: , Elapsed Time: 1584 ms, Instrs: 4625, Cycles: , IPC: 4625, ibuffer_stalls: 531 (2%), scheduler_stalls: 0 (0%), Issue Stalls Total: 3296 , ALU: 61%, FPU: 0%, LSU: 38%, SFU: 0%
+App: tmul_base, Size: 4x4, Cache: , Elapsed Time: 1599 ms, Instrs: 4625, Cycles: , IPC: 4625, ibuffer_stalls: 531 (2%), scheduler_stalls: 0 (0%), Issue Stalls Total: 3296 , ALU: 61%, FPU: 0%, LSU: 38%, SFU: 0%
+App: tmul_base, Size: 4x4, Cache: , Elapsed Time: 1593 ms, Instrs: 4625, Cycles: , IPC: 4625, ibuffer_stalls: 531 (2%), scheduler_stalls: 0 (0%), Issue Stalls Total: 3296 , ALU: 61%, FPU: 0%, LSU: 38%, SFU: 0%
+App: tmul_base, Size: 4x4, Cache: , Elapsed Time: 1597 ms, Instrs: 4625, Cycles: , IPC: 4625, ibuffer_stalls: 531 (2%), scheduler_stalls: 0 (0%), Issue Stalls Total: 3296 , ALU: 61%, FPU: 0%, LSU: 38%, SFU: 0%
+App: tmul_base, Size: 4x4, Cache: , Elapsed Time: 1593 ms, Instrs: 4625, Cycles: , IPC: 4625, ibuffer_stalls: 531 (2%), scheduler_stalls: 0 (0%), Issue Stalls Total: 3296 , ALU: 61%, FPU: 0%, LSU: 38%, SFU: 0%

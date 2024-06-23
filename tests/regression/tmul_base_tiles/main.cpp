@@ -129,7 +129,7 @@ int main(int argc, char *argv[]) {
   std::cout << "upload program" << std::endl;
   RT_CHECK(vx_upload_kernel_file(device, kernel_file));
 
-  kernel_arg.num_tasks = 4; 
+  kernel_arg.num_tasks = 4; //TODO 
   kernel_arg.size = size;
 
   // allocate device memory
@@ -236,7 +236,7 @@ int main(int argc, char *argv[]) {
 
 
   RT_CHECK(vx_copy_from_dev(device, staging_buf.data(), kernel_arg.C_addr, buf_size));
-
+  
   cleanup();
   return 0;
 }

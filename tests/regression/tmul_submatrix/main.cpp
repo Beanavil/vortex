@@ -217,39 +217,8 @@ int main(int argc, char *argv[]) {
   printf("\nResults\n - Size matrix: %dx%d\n - Elapsed time: %lg ms\n\n", size, size, elapsed);
 
 
-  // ----- Checks -----
-  // download destination buffer
-  // std::cout << "download destination buffer" << std::endl;
   RT_CHECK(vx_copy_from_dev(device, staging_buf.data(), kernel_arg.C_addr, buf_size));
 
-  // verify result
-  // std::cout << "verify result" << std::endl;  
-  // {
-  //   int errors = 0, aux = 0;
-  //   auto buf_ptr = (TYPE*)staging_buf.data();
-  //   // for (uint32_t j = 0; j < size/2; ++j) {
-  //   //   for (uint32_t i = 0; i < size*2; ++i) {
-  //   //     std::cout << buf_ptr[aux] << " ";
-  //   //     aux ++;
-  //   //   }
-  //   //   std::cout << "\n";
-  //   // }
-  //   // for (uint32_t i = 0; i < refs.size(); ++i) {
-  //     // auto ref = refs[i];
-  //     // auto cur = buf_ptr[i];
-  //     // if (!Comparator<TYPE>::compare(ref, cur, i, errors)) {
-  //     //   ++errors;
-  //     // }
-  //   }
-  //   // if (errors != 0) {
-  //   //   std::cout << "Found " << std::dec << errors << " errors!" << std::endl;
-  //   //   std::cout << "FAILED!" << std::endl;
-  //   //   return 1;  
-  //   // }
-  // // }
-
-
-  // cleanup
   cleanup();
   return 0;
 }
