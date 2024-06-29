@@ -17,8 +17,8 @@
 struct vx_axi {
   vx_axi(uint64_t base_addr);
 
-  int read32(uint64_t addr, uint32_t &value) const;
-  int read64(uint64_t addr, uint64_t &value) const;
+  int read32(uint64_t addr, uint32_t* value) const;
+  int read64(uint64_t addr, uint64_t* value) const;
 
   int write32(uint64_t addr, uint32_t value);
   int write64(uint64_t addr, uint64_t value);
@@ -26,3 +26,34 @@ struct vx_axi {
 private:
   uint64_t m_base_addr;
 };
+
+#define AFU_IMAGE_CMD_NONE         0
+#define AFU_IMAGE_CMD_MEM_READ     1
+#define AFU_IMAGE_CMD_MEM_WRITE    2
+#define AFU_IMAGE_CMD_RUN          3
+#define AFU_IMAGE_CMD_DCR_WRITE    4
+#define AFU_IMAGE_CMD_TERMINATE    7
+
+#define AFU_IMAGE_MMIO_BASE_ADDR   0xfff80000
+#define AFU_IMAGE_MMIO_CMD_TYPE     0  //0x00
+#define AFU_IMAGE_MMIO_CMD_ADDR     4  //0x04
+#define AFU_IMAGE_MMIO_CMD_DATA     8  //0x08
+#define AFU_IMAGE_MMIO_CMD_SIZE    12  //0x0C
+#define AFU_IMAGE_MMIO_DATA_READ   16  //0x10
+#define AFU_IMAGE_MMIO_STATUS      20  //0x14
+#define AFU_IMAGE_MMIO_DEV_CAPS    24  //0x18
+#define AFU_IMAGE_MMIO_DEV_CAPS_H  28  //0x1C
+#define AFU_IMAGE_MMIO_ISA_CAPS    32  //0x20
+#define AFU_IMAGE_MMIO_ISA_CAPS_H  36  //0x24
+#define AFU_IMAGE_MMIO_SCOPE_READ  40  //0x28
+#define AFU_IMAGE_MMIO_SCOPE_WRITE 44  //0x2C
+#define AFU_IMAGE_MMIO_VX_PC       48  //0x30
+#define AFU_IMAGE_MMIO_VX_INST     52  //0x34
+#define AFU_IMAGE_MMIO_DEBUG      128  //0x80
+
+#define AFU_IMAGE_STATE_IDLE      0
+#define AFU_IMAGE_STATE_MEM_READ  1
+#define AFU_IMAGE_STATE_MEM_WRITE 2
+#define AFU_IMAGE_STATE_RUN       3
+#define AFU_IMAGE_STATE_DCR       4
+#define AFU_IMAGE_STATE_BITS      3

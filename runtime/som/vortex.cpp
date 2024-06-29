@@ -13,18 +13,19 @@
 
 // Runtime
 #include "vx_axi.h"
+#include "vortex.h"
+#include "malloc.h"
+#include "baremetal.h"
+#include "utils.h"
 
 // Vortex
-#include <VX_config.h>
-#include <VX_types.h>
-#include <vortex.h>
-#include <vortex_afu.h>
+#include "VX_config.h"
+#include "VX_types.h"
 
 // STL
 #include <cstdlib>
 #include <memory>
 
-#include "baremetal.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -79,38 +80,37 @@
     _cleanup                                                                   \
   } while (false)
 
-using namespace vortex;
 
 ///////////////////////////////////////////////////////////////////////////////
 
 class vx_device {
 public:
-  vx_device(uint64_t base_addr) : vx_axi(base_addr) {}
+  vx_device(uint64_t base_addr) : _vx_axi(base_addr) {}
 
   ~vx_device() {}
 
   // 32-bit register operations
-  int read_register32(uint64_t addr, uint64_t &value) {
-    CHECK_ERR(vx_axi.read(addr, (uint32_t &)value), { return -1; });
-    DBGPRINT("*** read_register32: addr=0x%x, value=0x%x\n", addr, value);
+  int read_register32(uint64_t addr, uint32_t* value) {
+    CHECK_ERR(_vx_axi.read32(addr, value), { return -1; });
+    DBGPRINT("*** read_register32: addr=0x%x, value=0x%x\n", addr, *value);
     return 0;
   }
 
   int write_register32(uint64_t addr, uint64_t value) {
-    CHECK_ERR(vx_axi.write(addr, (uint32_t)value), { return -1; });
+    CHECK_ERR(_vx_axi.write32(addr,  value), { return -1; });
     DBGPRINT("*** write_register32: addr=0x%x, value=0x%x\n", addr, value);
     return 0;
   }
 
   // 64-bit register operations
-  int read_register64(uint64_t addr, uint64_t *value) {
-    CHECK_ERR(vx_axi.read64(addr, value), { return -1; });
+  int read_register64(uint64_t addr, uint64_t* value) {
+    CHECK_ERR(_vx_axi.read64(addr, value), { return -1; });
     DBGPRINT("*** read_register: addr=0x%x, value=0x%lx\n", addr, *value);
     return 0;
   }
 
   int write_register64(uint64_t addr, uint64_t value) {
-    CHECK_ERR(vx_axi.write64(addr, value), { return -1; });
+    CHECK_ERR(_vx_axi.write64(addr, value), { return -1; });
     DBGPRINT("*** write_register: addr=0x%x, value=0x%lx\n", addr, value);
     return 0;
   }
@@ -121,18 +121,18 @@ public:
     CHECK_ERR(this->write_register32(MMIO_CTL_ADDR, CTL_AP_RESET),
               { return -1; });
 
-    CHECK_ERR(this->read_register32(MMIO_DEV_ADDR, (uint32_t *)&this->dev_caps),
+    CHECK_ERR(this->read_register32(MMIO_DEV_ADDR, (uint32_t *)(&(this->dev_caps))),
               { return -1; });
 
     CHECK_ERR(this->read_register32(MMIO_DEV_ADDR + 4,
-                                    (uint32_t *)&this->dev_caps + 1),
+                                    ((uint32_t *)(&(this->dev_caps))) + 1),
               { return -1; });
 
-    CHECK_ERR(this->read_register32(MMIO_ISA_ADDR, (uint32_t *)&this->isa_caps),
+    CHECK_ERR(this->read_register32(MMIO_ISA_ADDR, (uint32_t *)(&(this->isa_caps))),
               { return -1; });
 
     CHECK_ERR(this->read_register32(MMIO_ISA_ADDR + 4,
-                                    (uint32_t *)&this->isa_caps + 1),
+                                    ((uint32_t *)(&(this->isa_caps))) + 1),
               { return -1; });
 
     // Assume 8GB as default
@@ -159,9 +159,9 @@ public:
     uint64_t addr;
 
     if (type == VX_MEM_TYPE_GLOBAL) {
-      CHECK_ERR(global_mem_->allocate(asize, &addr), { return -1; });
+      CHECK_ERR(global_mem->allocate(asize, &addr), { return -1; });
     } else if (type == VX_MEM_TYPE_LOCAL) {
-      CHECK_ERR(local_mem_->allocate(asize, &addr), { return -1; });
+      CHECK_ERR(local_mem->allocate(asize, &addr), { return -1; });
     } else {
       return -1;
     }
@@ -226,7 +226,7 @@ public:
     return 0;
   }
 
-  vx_axi vx_axi;
+  vx_axi _vx_axi;
   uint64_t global_mem_size;
   std::shared_ptr<vortex::MemoryAllocator> global_mem;
   std::shared_ptr<vortex::MemoryAllocator> local_mem;
