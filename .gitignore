@@ -21,8 +21,6 @@ deps/*
 third_party/*
 # Sim
 sim/*
-# Runtime
-runtime/*
 # Shared
 *.so
 # Others
