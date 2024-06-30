@@ -6,11 +6,12 @@ The Vortex Cache Sub-system has the following main properties:
 - Non-blocking pipelined architecture with local MSHR
 - Configurable design: Dcache, Icache, L2 cache, L3 cache
 
-### Cache Microarchitecture 
+### Cache Microarchitecture
 
 ![Image of Cache Hierarchy](./assets/img/cache_microarchitecture.png)
 
 The Vortex cache is comprised of multiple parallel banks. It is comprised of the following modules:
+
 - **Bank request dispatch crossbar**: assign a bank to incoming requests and resolve collision using stalls.
 - **Bank response merge crossbar**: merge result from banks and forward to the core response.
 - **Memory request multiplexer**: arbitrate bank memory requests

@@ -74,6 +74,7 @@ Vortex has a 6-stage pipeline:
   - Write result back to the register file and update the Scoreboard.
 
 ### Vortex clustering architecture
+
 - Sockets
   - Grouping multiple cores sharing L1 cache
 - Clusters

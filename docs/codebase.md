@@ -2,17 +2,17 @@
 
 The directory/file layout of the Vortex codebase is as followed:
 
-- `hw`:     
-  - `rtl`: hardware rtl sources    
+- `hw`:
+  - `rtl`: hardware rtl sources
     - `core`: core pipeline
     - `cache`: cache subsystem
     - `mem`: memory subsystem
     - `fpu`: floating point unit
     - `interfaces`: interfaces for inter-module communication
-    - `libs`: general-purpose RTL modules    
+    - `libs`: general-purpose RTL modules
   - `syn`: synthesis directory
     - `altera`: Altera synthesis scripts
-    - `xilinx`: Xilinx synthesis scripts    
+    - `xilinx`: Xilinx synthesis scripts
     - `synopsys`: Synopsys synthesis scripts
     - `modelsim`: Modelsim synthesis scripts
     - `yosys`: Yosys synthesis scripts
@@ -28,14 +28,14 @@ The directory/file layout of the Vortex codebase is as followed:
   - `include`: Vortex runtime public headers
   - `linker`: linker file for compiling kernels
   - `src`: runtime implementation
-- `sim`: 
+- `sim`:
   - `opaesim`: Intel OPAE AFU RTL simulator
   - `rtlsim`: processor RTL simulator
   - `simX`: cycle approximate simulator for vortex
 - `tests`: tests repository.
   - `riscv`: RISC-V conformance tests
   - `kernel`: kernel tests
-  - `regression`: regression tests  
+  - `regression`: regression tests
   - `opencl`: opencl benchmarks and tests
 - `ci`: continuous integration scripts
 - `miscs`: miscellaneous resources.

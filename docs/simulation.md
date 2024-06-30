@@ -1,4 +1,4 @@
-# Vortex Simulation Methods 
+# Vortex Simulation Methods
 
 ### RTL Simulation
 
@@ -30,9 +30,12 @@ Running tests under specific drivers (rtlsim,simx,fpga) is done using the script
 
 Example use of command line arguments: Run the sgemm benchmark using the opae driver with a Vortex configuration of 1 cluster, 4 cores, 4 warps, and 4 threads.
 
-    $ ./ci/blackbox.sh --clusters=1 --cores=4 --warps=4 --threads=4 --driver=opae --app=sgemm
+```bash
+./ci/blackbox.sh --clusters=1 --cores=4 --warps=4 --threads=4 --driver=opae --app=sgemm
+```
 
 Output from terminal:
+
 ```
 Create context
 Create program from kernel source
