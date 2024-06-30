@@ -17,7 +17,7 @@
 set -e
 
 TOOLDIR=${TOOLDIR:=/opt}
-OSDIR=${OSDIR:=ubuntu/bionic}
+OSDIR=${OSDIR:=ubuntu/focal}
 
 riscv() 
 {

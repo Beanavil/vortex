@@ -78,10 +78,7 @@ endif
 endif
 endif
 
-all: $(PROJECT) kernel.bin kernel.dump kernel.ll
-
-kernel.ll: $(VX_SRCS)
-	$(VX_CXX) $(VX_CFLAGS) $(VX_SRCS) $(VX_LDFLAGS) -o $@ -S -emit-llvm
+all: $(PROJECT) kernel.bin kernel.dump
 
 kernel.dump: kernel.elf
 	$(VX_DP) -D kernel.elf > kernel.dump
