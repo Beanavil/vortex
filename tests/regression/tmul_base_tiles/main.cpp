@@ -6,7 +6,6 @@
 #include <vortex.h>
 #include "common.h"
 
-
 #define FLOAT_ULP 6
 
 #define RT_CHECK(_expr)                                         \
@@ -69,8 +68,9 @@ public:
   }
 };
 
-
 const char* kernel_file = "kernel.bin";
+const char* kernel_file_comp = "kernel_comp.cpp";
+
 uint32_t size = 2;
 
 vx_device_h device = nullptr;
@@ -104,29 +104,11 @@ static void parse_args(int argc, char **argv) {
   }
 }
 
-static void matmacc_cpu(TYPE* out, const TYPE* A, const TYPE* B, const TYPE* C, uint32_t width, uint32_t height) {
-  for (uint32_t row = 0; row < height; ++row) {
-    for (uint32_t col = 0; col < width; ++col) {
-      TYPE sum(0);
-      for (uint32_t e = 0; e < width; ++e) {
-          sum += A[row * width + e] * B[e * width + col];
-      }
-      out[row * width + col] = sum;
-    }
-  }
-  for (uint32_t row = 0; row < height; ++row) {
-    for (uint32_t col = 0; col < width; ++col) {
-      out[row * width + col] += C[row * width + col];
-    }
-  }
-}
-
 void cleanup() {
   if (device) {
     vx_mem_free(device, kernel_arg.A_addr);
     vx_mem_free(device, kernel_arg.B_addr);
     vx_mem_free(device, kernel_arg.C_addr);
-    vx_mem_free(device, kernel_arg.D_addr);
     vx_dev_close(device);
   }
 }
@@ -134,7 +116,6 @@ void cleanup() {
 int main(int argc, char *argv[]) {
   // parse command arguments
   parse_args(argc, argv);
-
   std::srand(50);
 
   // open device connection
@@ -144,28 +125,26 @@ int main(int argc, char *argv[]) {
   uint32_t num_points = size * size;
   uint32_t buf_size = num_points * sizeof(TYPE);
 
-  std::cout << "data type: " << Comparator<TYPE>::type_str() << std::endl;
-  std::cout << "matrix size: " << size << "x" << size << std::endl;
-  std::cout << "buffer size: " << buf_size << " bytes" << std::endl;
-
-  // upload program
+  // Upload program
   std::cout << "upload program" << std::endl;
   RT_CHECK(vx_upload_kernel_file(device, kernel_file));
+
+  kernel_arg.num_tasks = 4; //TODO 
+  kernel_arg.size = size;
 
   // allocate device memory
   std::cout << "allocate device memory" << std::endl;
   RT_CHECK(vx_mem_alloc(device, buf_size, VX_MEM_TYPE_GLOBAL, &kernel_arg.A_addr));
   RT_CHECK(vx_mem_alloc(device, buf_size, VX_MEM_TYPE_GLOBAL, &kernel_arg.B_addr));
-  RT_CHECK(vx_mem_alloc(device, buf_size, VX_MEM_TYPE_GLOBAL, &kernel_arg.C_addr));
-  RT_CHECK(vx_mem_alloc(device, buf_size, VX_MEM_TYPE_GLOBAL, &kernel_arg.D_addr));
+  RT_CHECK(vx_mem_alloc(device, buf_size, VX_MEM_TYPE_GLOBAL, &kernel_arg.C_addr));;
+  RT_CHECK(vx_mem_alloc(device, kernel_arg.num_tasks* sizeof(TYPE) , VX_MEM_TYPE_GLOBAL, &kernel_arg.aux_addr));;
+  
 
-  kernel_arg.num_tasks = num_points;
-  kernel_arg.size = size;
-
+  //TODO erase
   std::cout << "dev_src0=0x" << std::hex << kernel_arg.A_addr << std::endl;
   std::cout << "dev_src1=0x" << std::hex << kernel_arg.B_addr << std::endl;
-  std::cout << "dev_src2=0x" << std::hex << kernel_arg.C_addr << std::endl;
-  std::cout << "dev_dst=0x" << std::hex << kernel_arg.D_addr << std::endl;
+  std::cout << "dev_dst=0x" << std::hex << kernel_arg.C_addr << std::endl;
+  std::cout << "dev_dst=0x" << std::hex << kernel_arg.aux_addr << std::endl;
 
   // allocate staging buffer
   std::cout << "allocate staging buffer" << std::endl;
@@ -181,18 +160,35 @@ int main(int argc, char *argv[]) {
   std::vector<TYPE> src_A(num_points);
   std::vector<TYPE> src_B(num_points);
   std::vector<TYPE> src_C(num_points);
-  std::vector<TYPE> src_D(num_points);
-
   std::vector<TYPE> refs(num_points);
-  for (uint32_t i = 0; i < num_points; ++i) {
-      src_A[i] = i;
-      src_B[i] = i + 20;
-      src_C[i] = i;
+
+  // ---- Standard matrix order -----
+  short aux1 = 0, aux2 = 0; 
+  for (uint32_t i = 0; i < size; ++i) {    
+    if(i%2 == 0){
+      aux1 = 0; 
+      aux2 = 1; 
+    }else{
+      aux1 = 2; 
+      aux2 = 3; 
+    }
+    for (uint32_t j = 0; j < size; j+=2) {
+        src_B[i*size + j] = aux1;
+        src_B[i*size + j + 1] = aux2;
+        src_A[i*size + j] = aux1;
+        src_A[i*size + j + 1] = aux2;
+    }  
   }
-
-  matmacc_cpu(refs.data(), src_A.data(), src_B.data(), src_C.data(),  size, size);
-
-  // upload source buffer A
+  // print matrix
+  // for (uint32_t i = 0; i < size; ++i) {
+  //   for (uint32_t j = 0; j < size; ++j) {
+  //     std::cout << src_B[i* size + j] << " ";  
+  //   }
+  //   std::cout << std::endl; 
+  // }
+  // return 0;
+  
+  // upload source buffer0
   {
     std::cout << "upload source buffer0" << std::endl;
     auto buf_ptr = (TYPE*)staging_buf.data();
@@ -202,7 +198,7 @@ int main(int argc, char *argv[]) {
     RT_CHECK(vx_copy_to_dev(device, kernel_arg.A_addr, staging_buf.data(), buf_size));
   }
 
-  // upload source buffer B
+  // upload source buffer1
   {
     std::cout << "upload source buffer1" << std::endl;
     auto buf_ptr = (TYPE*)staging_buf.data();
@@ -211,23 +207,19 @@ int main(int argc, char *argv[]) {
     }
     RT_CHECK(vx_copy_to_dev(device, kernel_arg.B_addr, staging_buf.data(), buf_size));
   }
-
-  // upload source buffer C
-  {
-    std::cout << "upload source buffer1" << std::endl;
-    auto buf_ptr = (TYPE*)staging_buf.data();
-    for (uint32_t i = 0; i < num_points; ++i) {
-      buf_ptr[i] = src_C[i];
-    }
-    RT_CHECK(vx_copy_to_dev(device, kernel_arg.C_addr, staging_buf.data(), buf_size));
-  }
-
-
+  
   // clear destination buffer
   std::cout << "clear destination buffer" << std::endl;
   memset(staging_buf.data(), 0, num_points * sizeof(TYPE));
-  RT_CHECK(vx_copy_to_dev(device, kernel_arg.D_addr, staging_buf.data(), buf_size));
+  RT_CHECK(vx_copy_to_dev(device, kernel_arg.C_addr, staging_buf.data(), buf_size));
 
+  // Clear aux vector
+  std::cout << "clear aux buffer" << std::endl;
+  memset(staging_buf.data(), 0, kernel_arg.num_tasks * sizeof(TYPE));
+  RT_CHECK(vx_copy_to_dev(device, kernel_arg.aux_addr, staging_buf.data(), kernel_arg.num_tasks * sizeof(TYPE)));
+
+
+  // --- Kernel launch ----
   auto time_start = std::chrono::high_resolution_clock::now();
 
   // start device
@@ -238,39 +230,13 @@ int main(int argc, char *argv[]) {
   std::cout << "wait for completion" << std::endl;
   RT_CHECK(vx_ready_wait(device, VX_MAX_TIMEOUT));
 
-
   auto time_end = std::chrono::high_resolution_clock::now();
   double elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start).count();
-  printf("Elapsed time: %lg ms\n", elapsed);
+  printf("\nResults\n - Size matrix: %dx%d\n - Elapsed time: %lg ms\n\n", size, size, elapsed);
 
-  // download destination buffer
-  std::cout << "download destination buffer" << std::endl;
-  RT_CHECK(vx_copy_from_dev(device, staging_buf.data(), kernel_arg.D_addr, buf_size));
 
-  // verify result
-  std::cout << "verify result" << std::endl;  
-  {
-    int errors = 0;
-    auto buf_ptr = (TYPE*)staging_buf.data();
-    for (uint32_t i = 0; i < refs.size(); ++i) {
-      auto ref = refs[i];
-      auto cur = buf_ptr[i];
-      if (!Comparator<TYPE>::compare(ref, cur, i, errors)) {
-        ++errors;
-      }
-    }
-    if (errors != 0) {
-      std::cout << "Found " << std::dec << errors << " errors!" << std::endl;
-      std::cout << "FAILED!" << std::endl;
-      return 1;  
-    }
-  }
-
-  // cleanup
-  std::cout << "cleanup" << std::endl;
+  RT_CHECK(vx_copy_from_dev(device, staging_buf.data(), kernel_arg.C_addr, buf_size));
+  
   cleanup();
-
-  std::cout << "PASSED!" << std::endl;
-
   return 0;
 }

@@ -32,7 +32,7 @@ VL_FLAGS += $(RTL_INCLUDE)
 VL_FLAGS += $(RTL_PKGS)
 
 # Enable Verilator multithreaded simulation
-THREADS ?= $(shell python -c 'import multiprocessing as mp; print(mp.cpu_count())')
+THREADS ?= $(shell python3 -c 'import multiprocessing as mp; print(mp.cpu_count())')
 VL_FLAGS += -j $(THREADS)
 #VL_FLAGS += --threads $(THREADS)
 
