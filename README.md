@@ -50,6 +50,8 @@ Vortex is a full-stack open-source RISC-V GPGPU. For our submission to the AOHW2
 - `runtime`: Host drivers implementations.
 - `sim`: Simulators repository.
 - `tests`: Tests repository.
+- `runTests.sh`: script for executing all tests performed in the report.
+- `runTests_cache.sh`: script for measuring the memory access patterns in the implemented instruction.
 
 ### Build Requirements
 
