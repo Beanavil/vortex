@@ -1,4 +1,4 @@
-# OHC 2024
+# AOHW 2024
 
 [![Build Status](https://travis-ci.com/vortexgpgpu/vortex.svg?branch=master)](https://travis-ci.com/vortexgpgpu/vortex)
 [![codecov](https://codecov.io/gh/vortexgpgpu/vortex/branch/master/graph/badge.svg)](https://codecov.io/gh/vortexgpgpu/vortex)
@@ -17,7 +17,7 @@
 
 ## Vortex GPGPU
 
-Vortex is a full-stack open-source RISC-V GPGPU. For our submission to the OHC, we have added support for tensor instructions for loading, storing and performing multiplication and addition of matrices. We have also added warp-level intrinsics that make use of these instructions.
+Vortex is a full-stack open-source RISC-V GPGPU. For our submission to the AOHW2024, we have added support for tensor instructions for loading, storing and performing multiplication and addition of matrices. We have also added warp-level intrinsics that make use of these instructions.
 
 ### Specifications
 
@@ -47,7 +47,6 @@ Vortex is a full-stack open-source RISC-V GPGPU. For our submission to the OHC, 
 - `hw`: Hardware sources.
 - `kernel`: RISC-V device runtime.
 - `miscs`: Miscellaneous resources.
-- `perf`: Performance results.
 - `runtime`: Host drivers implementations.
 - `sim`: Simulators repository.
 - `tests`: Tests repository.
@@ -62,7 +61,8 @@ Vortex is a full-stack open-source RISC-V GPGPU. For our submission to the OHC, 
 #### Toolchain Dependencies
 
 - [POCL](http://portablecl.org/)
-- [LLVM](https://llvm.org/)
+  [LLVM](https://llvm.org/)
+- [Our Customized LLVM](https://github.com/Beanavil/vortex-llvm)
 - [RISCV-GNU-TOOLCHAIN](https://github.com/riscv-collab/riscv-gnu-toolchain)
 - [Verilator](https://www.veripool.org/verilator)
 - [FpNew](https://github.com/pulp-platform/fpnew.git)
@@ -95,11 +95,25 @@ make -s -j $(nproc)
     cd vortex
     ```
 
-2. Install development tools
+2. Install dependencies
 
     ```bash
-    sudo apt-get install build-essential
-    sudo apt-get install git
+    sudo apt-get install build-essential zlib1g-dev libtinfo-dev libncurses5 uuid-dev libboost-serialization-dev libpng-dev libhwloc-dev ninja-build cmake
+    ```
+
+    and upgrade gcc to 11:
+
+    ```bash
+    sudo apt-get install gcc-11 g++-11
+    ```
+
+      Multiple gcc versions on Ubuntu can be managed with update-alternatives, e.g.:
+
+    ```bash
+    sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 9
+    sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 9
+    sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 11
+    sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 11
     ```
 
 3. Set up prebuilt toolchain
@@ -118,7 +132,19 @@ make -s -j $(nproc)
     source ./ci/toolchain_env.sh
     ```
 
-4. Build Vortex's sources
+4. Set up custom LLVM
+
+    ```bash
+    git clone https://github.com/Beanavil/vortex-llvm llvm-vortex && cd llvm-vortex
+    ```
+    ```bash
+    cmake -G Ninja -S llvm -B build -DLLVM_INSTALL_UTILS=ON -DCMAKE_INSTALL_PREFIX=$TOOLDIR/llvm-vortex -DCMAKE_BUILD_TYPE=Release -DLLVM_DEFAULT_TARGET_TRIPLE="riscv32-unknown-elf" -DLLVM_TARGETS_TO_BUILD="RISCV" -DLLVM_ENABLE_PROJECTS="clang"
+    ```
+    ```bash
+    ninja -C build install
+    ```
+
+5. Build Vortex's sources
 
     ```bash
     make -s -j $(nproc)
