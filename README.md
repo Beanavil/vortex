@@ -7,7 +7,6 @@
 
 - Team number: `AOHW-200`
 - Project name: RISC-V based GPU
-- Link to YouTube Video(s):
 - University name: Universitat Politècnica de Catalunya (UPC)
 - Participant(s):
   - Javier Beiro Piñón
@@ -76,7 +75,7 @@ Vortex is a full-stack open-source RISC-V GPGPU. For our submission to the AOHW2
 
 ### Build Instructions
 
-We already ship a docker image based on Ubuntu 20.04 that has the Vortex repository cloned and all the dependencies installed. See []().
+We already ship a docker image based on Ubuntu 20.04 that has the Vortex repository cloned and all the dependencies installed.
 
 The build process is described below.
 
